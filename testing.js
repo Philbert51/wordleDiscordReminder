@@ -33,31 +33,3 @@ const connectToDatabase = (retries) => {
 
 connectToDatabase();
 
-
-// setTimeout(() => {
-//     isAuthenticatedMySQL = true;
-// }, 10000);
-
-// const testingFunction = (retries) => {
-//     console.log(retries);
-//     let totalRetries = 0;
-//     if (!(retries === undefined)) totalRetries = retries;
-//     if (!isAuthenticatedMySQL) {
-//         if (totalRetries < 5) {
-//             totalRetries++;
-//             setTimeout(() => {
-//                 testingFunction(totalRetries)
-//             }, 3000);
-//             console.log('retrying.....');
-//             return;
-//         }
-//         else {
-//             console.log('I give up trying');
-//             return;
-//         }
-//     }
-//     console.log('mysql authenticated : ' + isAuthenticatedMySQL);
-// };
-
-// testingFunction();
-

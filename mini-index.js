@@ -1,26 +1,26 @@
 const dcJS = require('discord.js');
 const cron = require('node-cron');
-const dotenvi = require('dotenv'); dotenvi.config({ path: ['./botToken.env'] });
-const token = process.env.token;
+const dotenvi = require('dotenv'); dotenvi.config({path : ['./botToken.env']});
+const token = process.env.token; 
 const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
 const mySQLConnection = require('mysql2');
 let onReady = false;
 let channelObject = null;
-let usersID = [];
+let usersID = ['480316607223169045'];
 let notDone = Array.from(usersID);
 let cantReply = [];
 let iteration = 0;
-let authorizedUserID = ['480316607223169045'];
+let authorizedUserID = [];
 let intervalHourlyReminder = 7;
 
-// //ssgn server
-// const serverID = '781739449288491041';
-// const wordleRoleID = '1529803137131741345'; //⚠⚠⚠⚠⚠change when release
-// const channelID = '824499899306737674';
+//ssgn server
+const serverID = '781739449288491041';
+const wordleRoleID = '1529803137131741345'; //⚠⚠⚠⚠⚠change when release
+const channelID = '806701065764339722';
 // real SERVER
-const serverID = '837944329745727508';
-const wordleRoleID = '1511977531535003678'; //⚠⚠⚠⚠⚠change when release
-const channelID = '837944329745727510';
+// const serverID = '837944329745727508';
+// const wordleRoleID = '1511977531535003678'; //⚠⚠⚠⚠⚠change when release
+// const channelID = '837944329745727510';
 
 //wordleBotid
 const wordleBotID = '1211781489931452447';
@@ -29,30 +29,38 @@ const wordleBotID = '1211781489931452447';
 const listUsersIDKeyword = '[wordlers';
 const intervalReminderKeyword = '[duration ';
 const finishWordleKeyword = '[finished_for_the_day ';
-const unfinishedWordleKeyword = '[undo_finish ';
-const finishAllUserKeyword = '[finish_all';
-const whoIsNotDoneKeyword = '[whoisnotdone';
+const unfinishedWordleKeyword = '[undo_finish '
+const finishAllUserKeyword = '[finish_all'
 
 //initialization
 
 let button = new dcJS.ButtonBuilder();
 button.setCustomId("btnYes");
-button.setLabel("yes, stop reminding pls!");
+button.setLabel("Yes");
 button.setStyle(1);
 
 let embed = new dcJS.EmbedBuilder();
 embed.setColor(dcJS.Colors.Default);
 embed.setTitle('Reminder');
-
+embed.setDescription('Have you done your wordle?');
 let row = new dcJS.ActionRowBuilder();
+
 row.addComponents(button);
 
 bot.login(token);
+
+function connectToDatabase() {
+    console.log(connection.state);
+    connection.connect((e) => {
+        throw new Error("Error at connecting to database : " + e);
+    });
+}
 
 // const server = bot.guilds.cache.get(server); <<< idk what is this
 
 bot.on('messageCreate', function (message) {
     try {
+        console.log(message);
         if (!onReady) return; //if not ready exit
         if (!message.author.bot && authorizedUserID.includes(message.author.id)) {
             const messageContent = message.content;
@@ -63,7 +71,7 @@ bot.on('messageCreate', function (message) {
                     for (const id of usersID) {
                         contentToSend += '<@' + id + '>';
                     }
-                    message.reply({ content: contentToSend, allowedMentions: { users: [message.author.id] } });
+                    message.reply({ content: contentToSend, allowedMentions: { User: [] } });
                 }
                 else {
                     message.reply({ content: 'Nobody listed yet!' });
@@ -77,28 +85,15 @@ bot.on('messageCreate', function (message) {
             else if (messageContent.startsWith(finishWordleKeyword)) {
                 const tempArray = messageContent.split(" ");
                 if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
-                addNotDone(tempArray[1]);
+                addNotDone(tempArray(1));
             }
-            else if (messageContent.startsWith(unfinishedWordleKeyword)) {
+            else if (messsageContent.startsWith(unfinishedWordleKeyword)) {
                 const tempArray = messageContent.split(" ");
                 if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
-                removeNotDone(tempArray[1]);
+                removeNotDone(tempArray(1));
             }
-            else if (messageContent.startsWith(finishAllUserKeyword)) {
+            else if (messsageContent.startsWith(finishAllUserKeyword)) {
                 resetNotDone();
-            }
-            else if (messageContent === whoIsNotDoneKeyword) {
-                let temp = '';
-                if (notDone.length > 0) {
-                    for (const id of notDone) {
-                        temp += '<@' + id + '>';
-                    }
-                    message.reply({ content: temp, allowedMentions: { users: [message.author.id] } });
-                }
-                else {
-                    temp = 'everyone is done!';
-                    message.reply({ content: temp });
-                }
             }
         }
     }
@@ -140,6 +135,7 @@ bot.on('clientReady', async () => {
         refreshUser();
         onReady = true;
         console.log("---> bot ready!");
+        // await refreshServer(serverID); console.log("---> server refreshed fetched!");
         // refreshUser(); console.log("---> user refreshed!");
         // sendMessage(); console.log("---> sendMessage()!");
     }
@@ -149,11 +145,7 @@ bot.on('clientReady', async () => {
 });
 
 
-function reminderRandomizer() {
-    return reminderList[Math.floor(Math.random() * reminderList.length)];
-}
-
-function sendReminder() {
+function sendMessage() {
     try {
         if (!onReady) return;
         if (notDone.length === 0) {
@@ -161,7 +153,6 @@ function sendReminder() {
             return;
         }
         let contentToSend = "";
-        embed.setDescription(reminderRandomizer());
         for (const id of notDone) {
             contentToSend += '||<@' + id + '>||';
         }
@@ -258,15 +249,19 @@ function refreshUser() {
             removeNotDone(value);
         }
     }
-    // console.log(">>>>>>>>>> old member :"); console.log(usersID);
-    // console.log(">>>>>>>>>> new member :"); console.log(updatedRoleID);
-    // iteration++;
-    // console.log(iteration + " starts at 1");
+    console.log(">>>>>>>>>> old member :"); console.log(usersID);
+    console.log(">>>>>>>>>> new member :"); console.log(updatedRoleID);
+    iteration++;
+    console.log(iteration + " starts at 1");
 }
 
-function changeInterval(duration) {
+function changeInterval(duration) {;
     if (isNaN(parseInt(duration))) throw new Error("Interval duration must be a number!");
     intervalHourlyReminder = duration;
+}
+
+async function refreshServer(serverID) {
+    await server.roles.fetch();
 }
 
 // setInterval(() => {
@@ -281,7 +276,7 @@ function changeInterval(duration) {
 
 cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => { //change this when release
     refreshUser();
-    sendReminder();
+    sendMessage();
 }, { timezone: 'UTC' });
 
 cron.schedule('0 17 * * *', () => { //restart the list
