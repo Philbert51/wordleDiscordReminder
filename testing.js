@@ -1,44 +1,63 @@
-const dcJS = require('discord.js');
-const cron = require('node-cron');
-require('dotenv').config({ path: './botToken.env' });
-const token = process.env.token;
-const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
-let serverID = '781739449288491041';
-let roleID = '1529803137131741345';
-let adminRoleID = '786953137335828541';
-let bestBoiRoleID = '1529393936165113998';
-
-bot.login(token);
-
-
-console.log(dcJS.AllowedMentionsTypes);
-// const arr = ['2', '3'];
-// console.log(arr.toString(), typeof arr.toString());
+const mySQLConnection = require('mysql2');
+const { Connection } = require('mysql2/promise');
+const connection = mySQLConnection.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'wordle_reminder'
+});
+let isAuthenticatedMySQL = false;
+let isConnectedMySQL = false;
 
 
-// bot.on('clientReady', async () => {
-//     // const server = bot.guilds.cache.get(serverID);
-//     // const role = server.roles.cache.get(roleID);
-//     // console.log(role.members.keys());
-//     // await refreshServer(serverID);
-//     setInterval(() => {
-//     console.log(bot.guilds.cache.get(serverID).roles.cache.get(roleID).members.keys())}, 
-//     5000);
-// });
+const connectToDatabase = (retries) => {
+    connection.connect((a, b, c, d) => {
+        let totalRetries = 0;
+        if (!(retries === undefined)) totalRetries = retries;
+        if (!(connection.state === 'authenticated')) {
+            if (totalRetries < 3) {
+                console.log('MYSQL failed to authenticate : wrong username/password');
+                console.log('>>>>> mysql rejected login credentials');
+                console.log('>>>>> retrying login :'); totalRetries++;
+                setTimeout(() => { connectToDatabase(totalRetries) }, 5000);
+                return;
+            }
+            else {
+                console.log('bot gives up connecting to mysql');
+                return;
+            }
+        }
+        console.log('Successfully authenticated to mysql');
+    });
+}
 
-// bot.on('guildMemberUpdate', () => {
+connectToDatabase();
 
-// });
 
-// async function refreshServer(serverID) {
-//     const server = await bot.guilds.fetch(serverID);
-//     await server.members.fetch();
-//     await server.roles.fetch();
-// }
+// setTimeout(() => {
+//     isAuthenticatedMySQL = true;
+// }, 10000);
 
-// setInterval(() => {
-//     const channel = bot.channels.cache.get('824499899306737674');//ssgn scores
-//     const content = "";
-    
-//     channel.send()
-// }, 5000);
+// const testingFunction = (retries) => {
+//     console.log(retries);
+//     let totalRetries = 0;
+//     if (!(retries === undefined)) totalRetries = retries;
+//     if (!isAuthenticatedMySQL) {
+//         if (totalRetries < 5) {
+//             totalRetries++;
+//             setTimeout(() => {
+//                 testingFunction(totalRetries)
+//             }, 3000);
+//             console.log('retrying.....');
+//             return;
+//         }
+//         else {
+//             console.log('I give up trying');
+//             return;
+//         }
+//     }
+//     console.log('mysql authenticated : ' + isAuthenticatedMySQL);
+// };
+
+// testingFunction();
+

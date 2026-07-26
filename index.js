@@ -1,24 +1,36 @@
 const dcJS = require('discord.js');
 const cron = require('node-cron');
-require('dotenv').config({ path: './botToken.env' });
-const token = process.env.token;
+const dotenvi = require('dotenv');
+const token = process.env.token; dotenvi.config('./botToken.env');
 const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
+const mySQLConnection = require('mysql2');
 let onReady = false;
-let whereToSend = null;
-let author = null;
-let usersID = [];
+let channelObject = null;
+let usersID = ['480316607223169045'];
 let notDone = Array.from(usersID);
 let cantReply = [];
 let iteration = 0;
-const keyword = '[wordlers';
-//ssgn server
+let authorizedUserID = [];
+let intervalHourlyReminder = 7;
+
+// //ssgn server
 // const serverID = '781739449288491041';
-// const wordleRoleID = '1529803137131741345';
+// const wordleRoleID = '1529803137131741345'; //⚠⚠⚠⚠⚠change when release
 // const channelID = '824499899306737674';
-//real SERVER
+// real SERVER
 const serverID = '837944329745727508';
-const wordleRoleID = '1511977531535003678';
+const wordleRoleID = '1511977531535003678'; //⚠⚠⚠⚠⚠change when release
 const channelID = '837944329745727510';
+
+//wordleBotid
+const wordleBotID = '1211781489931452447';
+
+//keywords
+const listUsersIDKeyword = '[wordlers';
+const intervalReminderKeyword = '[duration ';
+const finishWordleKeyword = '[finished_for_the_day ';
+const unfinishedWordleKeyword = '[undo_finish '
+const finishAllUserKeyword = '[finish_all'
 
 //initialization
 
@@ -37,26 +49,53 @@ row.addComponents(button);
 
 bot.login(token);
 
+function connectToDatabase() {
+    console.log(connection.state);
+    connection.connect((e) => {
+        throw new Error("Error at connecting to database : " + e);
+    });
+}
 
 // const server = bot.guilds.cache.get(server); <<< idk what is this
 
 bot.on('messageCreate', function (message) {
     try {
-    if (onReady) {
-        if (!message.author.bot && message.content === keyword) {
-            refreshUser();
-            if (usersID.length > 0) {
-                let contentToSend = '';
-                for (const id of usersID) {
-                    contentToSend += '<@' + id + '>';
+        if (!onReady) return; //if not ready exit
+        if (!message.author.bot && authorizedUserID.includes(message.author.id)) {
+            const messageContent = message.content;
+            if (messageContent === listUsersIDKeyword) {
+                refreshUser();
+                if (usersID.length > 0) {
+                    let contentToSend = '';
+                    for (const id of usersID) {
+                        contentToSend += '<@' + id + '>';
+                    }
+                    message.reply({ content: contentToSend, allowedMentions: { User: [] } });
                 }
-                message.reply({ content: contentToSend, allowedMentions: { User: [] } });
+                else {
+                    message.reply({ content: 'Nobody listed yet!' });
+                }
             }
-            else {
-                message.reply({ content: 'Nobody listed yet!' });
+            else if (messageContent.startsWith(intervalReminderKeyword)) {
+                const tempArray = messageContent.split(" ");
+                if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
+                changeInterval(tempArray[1]);
+            }
+            else if (messageContent.startsWith(finishWordleKeyword)) {
+                const tempArray = messageContent.split(" ");
+                if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
+                addNotDone(tempArray(1));
+            }
+            else if (messsageContent.startsWith(unfinishedWordleKeyword)) {
+                const tempArray = messageContent.split(" ");
+                if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
+                removeNotDone(tempArray(1));
+            }
+            else if (messsageContent.startsWith(finishAllUserKeyword)) {
+                resetNotDone();
             }
         }
-    }}
+    }
     catch (E) {
         console.log("error at listening messageCreate : " + E);
     }
@@ -65,6 +104,7 @@ bot.on('messageCreate', function (message) {
 
 bot.on('interactionCreate', async (evt) => {
     try {
+        if (!onReady) return;
         if (evt.customId === 'btnYes') {
             const evtUserId = evt.user.id;
             if (!cantReply.includes(evtUserId)) {
@@ -106,19 +146,18 @@ bot.on('clientReady', async () => {
 
 function sendMessage() {
     try {
-        if (onReady) {
-            if (notDone.length === 0) {
-                console.log("no users inside notDone!");
-                return;
-            }
-            let contentToSend = "";
-            for (const id of notDone) {
-                contentToSend += '||<@' + id + '>||';
-            }
-            resetCantReply();
-            whereToSend = bot.channels.cache.get(channelID);
-            whereToSend.send({ content: contentToSend, embeds: [embed], components: [row] });
+        if (!onReady) return;
+        if (notDone.length === 0) {
+            console.log("no users inside notDone!");
+            return;
         }
+        let contentToSend = "";
+        for (const id of notDone) {
+            contentToSend += '||<@' + id + '>||';
+        }
+        resetCantReply();
+        channelObject = bot.channels.cache.get(channelID);
+        channelObject.send({ content: contentToSend, embeds: [embed], components: [row] });
     }
     catch (errr) {
         console.log("Error at " + errr);
@@ -140,11 +179,19 @@ function removeUser(idUser) {
 }
 
 function addNotDone(idUser) {
+    if (typeof idUser !== 'string') throw new Error('on addNotDone(idUser) : idUser must be string');
+    if (isNaN(parseInt(idUser))) console.log('on addNotDone(idUser) : idUser must be all number');
     if (!notDone.includes(idUser)) notDone.push(idUser);
 }
 
 function removeNotDone(idUser) {
+    if (typeof idUser !== 'string') throw new Error('on removeNotDone(idUser) : idUser must be string');
+    if (isNaN(parseInt(idUser))) console.log('on removeNotDone(idUser) : idUser must be all number');
     if (notDone.includes(idUser)) notDone.splice(notDone.indexOf(idUser), 1);
+}
+
+function resetNotDone() {
+    notDone = [];
 }
 
 function userFinishedWordle(idUserIndex) {
@@ -154,20 +201,6 @@ function userFinishedWordle(idUserIndex) {
     }
     throw new Error("userFinishedWordle received index -1 : user not found");
 }
-
-// function userUnfinishedWordle(idUser) { //adding user back to the list of notDone, unfinishedWordle
-//     if (typeof idUser !== 'string') {s
-//         throw new Error('userUnfinishedWordle idUser must be string');
-//     }
-//     if (isNaN(parseInt(idUser))) {
-//         throw new Error('Error : userUnfinishedWordle idUser cannot contain non-integer');
-//     }
-//     const index = notDone.indexOf(idUser);
-//     if (index !== -1) {
-//         notDone.splice(index, 1);
-//     }
-//     notDone.push(idUser);
-// }
 
 function addCantReply(idUser) {
     if (!cantReply.includes(idUser)) {
@@ -221,8 +254,12 @@ function refreshUser() {
     console.log(iteration + " starts at 1");
 }
 
-async function refreshServer(serverID) {
+function changeInterval(duration) {;
+    if (isNaN(parseInt(duration))) throw new Error("Interval duration must be a number!");
+    intervalHourlyReminder = duration;
+}
 
+async function refreshServer(serverID) {
     await server.roles.fetch();
 }
 
@@ -236,7 +273,7 @@ async function refreshServer(serverID) {
 // }, 10000);
 
 
-cron.schedule('0 */3 * * *', () => { //change this when release
+cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => { //change this when release
     refreshUser();
     sendMessage();
 }, { timezone: 'UTC' });
