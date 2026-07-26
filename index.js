@@ -12,6 +12,12 @@ let cantReply = [];
 let iteration = 0;
 let authorizedUserID = ['480316607223169045'];
 let intervalHourlyReminder = 7;
+let reminderList = [
+    '🟩🟨⬜',
+    "^_____^ is wordling time! (((φ(◎ロ◎;)φ)))",
+    'wordle? (∪.∪ )...zzz',
+    'w o r d l e ಥ_ಥ',
+];
 
 // //ssgn server
 // const serverID = '781739449288491041';
@@ -77,15 +83,15 @@ bot.on('messageCreate', function (message) {
             else if (messageContent.startsWith(finishWordleKeyword)) {
                 const tempArray = messageContent.split(" ");
                 if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
-                addNotDone(tempArray[1]);
+                removeNotDone(tempArray[1]);
             }
             else if (messageContent.startsWith(unfinishedWordleKeyword)) {
                 const tempArray = messageContent.split(" ");
                 if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
-                removeNotDone(tempArray[1]);
+                addNotDone(tempArray[1]);
             }
             else if (messageContent.startsWith(finishAllUserKeyword)) {
-                resetNotDone();
+                finishAll();
             }
             else if (messageContent === whoIsNotDoneKeyword) {
                 let temp = '';
@@ -200,7 +206,7 @@ function removeNotDone(idUser) {
     if (notDone.includes(idUser)) notDone.splice(notDone.indexOf(idUser), 1);
 }
 
-function resetNotDone() {
+function finishAll() {
     notDone = [];
 }
 
