@@ -112,15 +112,15 @@ bot.on('messageCreate', async function (messageObject) {
             }
             else if (messageContent.startsWith(finishWordleKeyword)) {
                 const tempArray = messageContent.split(" ");
-                if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
+                if (tempArray.length !== 2) throw new Error("finishWordleKeyword format not valid");
                 removeNotDone(tempArray[1]);
             }
             else if (messageContent.startsWith(unfinishedWordleKeyword)) {
                 const tempArray = messageContent.split(" ");
-                if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
+                if (tempArray.length !== 2) throw new Error("unfinishedWordleKeyword format not valid");
                 addNotDone(tempArray[1]);
             }
-            else if (messageContent.startsWith(finishAllUserKeyword)) {
+            else if (messageContent === finishAllUserKeyword) {
                 finishAll();
             }
             else if (messageContent === whoIsNotDoneKeyword) {
@@ -245,6 +245,11 @@ bot.on('clientReady', async () => {
 
 
 async function sendAutoClick(newMessageObject, interactedUserID) {
+    if (!notDone.includes(interactedUserID)) {
+        console.log('user id : ' + interactedUserID + 'already completed wordle but still received event to fire');
+        console.log(newMessageObject);
+        return;
+    }
     const undoButton = new dcJS.ButtonBuilder();
     undoButton.setCustomId(undoButtonCustomId + interactedUserID);
     undoButton.setLabel('Undo');
@@ -256,7 +261,7 @@ async function sendAutoClick(newMessageObject, interactedUserID) {
 
     await newMessageObject.reply({
         content: '<@' + interactedUserID +
-            '> I automatically detected and helped you click. \n' +
+            '> I automatically detected your completion. \n' +
             'If you think this is a mistake press Undo below',
         components: [undoRow]
     });
@@ -384,6 +389,13 @@ function refreshUser() {
 function changeInterval(duration) {
     if (isNaN(parseInt(duration))) throw new Error("Interval duration must be a number!");
     intervalHourlyReminder = duration;
+    scheduleHourlyReminder.destroy();
+    scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
+        if (!onReady) { console.log('supposed to remind but the bot is not ready yet.'); return; }
+        refreshUser();
+        resetCantReply();
+        sendReminder();
+    }, { timezone: 'UTC' });
 }
 
 function getKeys(object) {
@@ -444,13 +456,21 @@ async function refreshAllCache() {
 }
 
 
-cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
+const scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
+    if (!onReady) {
+        console.log('supposed to remind but the bot is not ready yet.');
+        return;
+    }
     refreshUser();
     resetCantReply();
     sendReminder();
 }, { timezone: 'UTC' });
 
 cron.schedule('0 17 * * *', () => { //restart the list
+    if (!onReady) {
+        console.log('supposed to reset the who finished wordle list to empty but the bot is not ready yet.');
+        return;
+    }
     unfinishEveryone();
     resetCantReply();
 }, { timezone: 'UTC' });
