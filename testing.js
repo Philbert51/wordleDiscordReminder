@@ -1,35 +1,79 @@
-const mySQLConnection = require('mysql2');
-const { Connection } = require('mysql2/promise');
-const connection = mySQLConnection.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'wordle_reminder'
-});
-let isAuthenticatedMySQL = false;
-let isConnectedMySQL = false;
+// const fileSys = require('fs');
+// let fileObject = {};
+// let persistentData = '';
 
 
-const connectToDatabase = (retries) => {
-    connection.connect((a, b, c, d) => {
-        let totalRetries = 0;
-        if (!(retries === undefined)) totalRetries = retries;
-        if (!(connection.state === 'authenticated')) {
-            if (totalRetries < 3) {
-                console.log('MYSQL failed to authenticate : wrong username/password');
-                console.log('>>>>> mysql rejected login credentials');
-                console.log('>>>>> retrying login :'); totalRetries++;
-                setTimeout(() => { connectToDatabase(totalRetries) }, 5000);
-                return;
-            }
-            else {
-                console.log('bot gives up connecting to mysql');
-                return;
-            }
-        }
-        console.log('Successfully authenticated to mysql');
+// fileObject.notDone = notDone.toString();
+
+
+// async function main() {
+//     await fileSys.writeFile('database.json', JSON.stringify(fileObject), 'utf-8', (err) => {
+//         if (err) console.log(err.stack);
+//     });
+//     if (!fileSys.existsSync('database.json')) { console.log('database.json file not found'); return; }
+//     await new Promise((res, reject) => {
+//         fileSys.readFile('database.json', 'utf-8', (err, databaseData) => {
+//             if (err) { console.log(err.stack); return; }
+//             persistentData = JSON.parse(databaseData);
+//             res();
+//         })
+//     });
+//     console.log(persistentData);
+//     console.log(typeof persistentData);
+// }
+
+// main();
+
+
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+const tempArray = [1, 2, 3, 4]
+let fetches = 0;
+let promiseList = [];
+
+function randomAssFetchSimulator(secondLimit) {
+    fetches++;
+    const processID = fetches;
+    console.log('fetches : ' + fetches);
+    return new Promise((res, rej) => {
+        setTimeout(() => {
+            res(); console.log('processID resolved : ' + processID); onUpdate();
+        }, Math.ceil(Math.random() * secondLimit) * 1000);
+    })
+}
+
+
+async function addDelay(miliseconds) {
+    //trying to addDelay
+    onUpdate();
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            onUpdate();
+            resolve();
+        }, miliseconds);
     });
 }
 
-connectToDatabase();
+
+async function main() {
+    console.log(await Promise.all(tempArray.map(async (v) => {
+        onUpdate();
+        console.log(v + ' runs');
+        await addDelay(5000);
+        const fetch = randomAssFetchSimulator(10);
+        promiseList.push(fetch);
+        return fetch;
+    })));
+    console.log('main done running');
+}
+
+function onUpdate() {
+    console.log(promiseList);
+}
+
+
+main();
+
+
 

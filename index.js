@@ -1,17 +1,17 @@
 const dcJS = require('discord.js');
 const cron = require('node-cron');
 const dotenvi = require('dotenv'); dotenvi.config({ path: ['./botToken.env'] });
-const token = process.env.token;
+const fileSys = require('fs');
 const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
-const mySQLConnection = require('mysql2');
+const token = process.env.token;
+const fileName = 'database.json';
+let fileData = {};
 let onReady = false;
-let channelObject = null;
 let usersID = [];
 let notDone = Array.from(usersID);
 let cantReply = [];
-let iteration = 0;
 let authorizedUserID = ['480316607223169045'];
-let intervalHourlyReminder = 7;
+let intervalHourlyReminder = 12;
 let reminderList = [
     '🟩🟨⬜',
     "^_____^ is wordling time! (((φ(◎ロ◎;)φ)))",
@@ -26,11 +26,11 @@ let reminderList = [
 //ssgn server
 // const serverID = '781739449288491041';
 // const wordleRoleID = '1529803137131741345'; //⚠⚠⚠⚠⚠change when release
-// const channelID = '824499899306737674';
+// const mainChannelID = '824499899306737674';
 // real SERVER
 const serverID = '837944329745727508';
 const wordleRoleID = '1511977531535003678'; //⚠⚠⚠⚠⚠change when release
-const channelID = '837944329745727510';
+const mainChannelID = '837944329745727510';
 
 //wordleBotid
 const wordleBotID = '1211781489931452447';
@@ -62,8 +62,36 @@ const reminderRow = new dcJS.ActionRowBuilder();
 reminderRow.addComponents(reminderButton);
 
 
+async function main() {
+    try {
 
-bot.login(token);
+        loadDatabaseData() ? fileToMemory() : saveToFile();
+        await bot.login(token);
+
+    } catch (e) {
+
+        console.log(e.stack);
+
+    }
+}
+
+bot.on('clientReady', async () => {
+    try {
+        // await server.members.fetch();
+        // await server.roles.fetch();
+        // await server.channels.fetch();
+        await refreshAllCache();
+        refreshUser();
+        onReady = true;
+        console.log("---> bot ready!");
+        console.log(notDone);
+        // await sendAutoClick(await bot.channels.cache.get(channelID).messages.fetch('1531583517106896977'), '480316607223169045');
+        // removeNotDone('480316607223169045');
+    }
+    catch (errr) {
+        console.log(errr.stack);
+    }
+});
 
 // const server = bot.guilds.cache.get(server); <<< idk what is this
 
@@ -72,12 +100,7 @@ bot.on('messageCreate', async function (messageObject) {
         if (!onReady) { console.log('received event messageCreate but bot is not ready yet.'); return; } //if not ready exit
         const messageContent = messageObject.content;
         if (messageObject.author.id === wordleBotID) {
-            if (messageContent.includes('Your group is on a')) {
-                unfinishEveryone();
-                resetCantReply();
-                sendReminder();
-            }
-            else if (messageContent.includes('was playing') || messageContent.includes('were playing')) {
+            if (messageContent.includes('was playing') || messageContent.includes('were playing')) {
                 if (messageObject.attachments.firstKey() == null) {
                     console.log('found was/were playing but no attachments was detected');
                     return;
@@ -93,7 +116,6 @@ bot.on('messageCreate', async function (messageObject) {
         }
         if (!messageObject.author.bot && authorizedUserID.includes(messageObject.author.id)) {
             if (messageContent === listUsersIDKeyword) {
-                refreshUser();
                 if (usersID.length > 0) {
                     let contentToSend = '';
                     for (const id of usersID) {
@@ -142,7 +164,7 @@ bot.on('messageCreate', async function (messageObject) {
                     console.log("Error format in loggerKeyword");
                     return;
                 }
-                await logMessageInfo(channelID, tempArray[1]);
+                await logMessageInfo(mainChannelID, tempArray[1]);
             }
         }
     }
@@ -172,6 +194,12 @@ bot.on('messageUpdate', async (oldMessage, newMessage) => {
         }
     } catch (e) {
         console.log(e.stack);
+    }
+});
+
+bot.on('guildMemberUpdate', (oldMemberInfo, newMemberInfo) => {
+    if (oldMemberInfo.roles.cache !== newMemberInfo.roles.cache) {
+        refreshUser();
     }
 });
 
@@ -226,22 +254,7 @@ bot.on('interactionCreate', async (evt) => {
     }
 });
 
-bot.on('clientReady', async () => {
-    try {
-        // await server.members.fetch();
-        // await server.roles.fetch();
-        // await server.channels.fetch();
-        await refreshAllCache();
-        refreshUser();
-        onReady = true;
-        console.log("---> bot ready!");
-        // await sendAutoClick(await bot.channels.cache.get(channelID).messages.fetch('1531583517106896977'), '480316607223169045');
-        // removeNotDone('480316607223169045');
-    }
-    catch (errr) {
-        console.log(errr.stack);
-    }
-});
+
 
 
 async function sendAutoClick(newMessageObject, interactedUserID) {
@@ -267,11 +280,19 @@ async function sendAutoClick(newMessageObject, interactedUserID) {
     });
 }
 
+function loadDatabaseData() {
+    if (fileSys.existsSync('database.json')) {
+        fileData = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
+        return true;
+    }
+    return false;
+}
+
 function reminderRandomizer() {
     return reminderList[Math.floor(Math.random() * reminderList.length)];
 }
 
-function sendReminder() {
+function sendReminder(theChannelID) {
     try {
         if (!onReady) return;
         if (notDone.length === 0) {
@@ -283,7 +304,7 @@ function sendReminder() {
         for (const id of notDone) {
             contentToSend += '||<@' + id + '>||';
         }
-        channelObject = bot.channels.cache.get(channelID);
+        const channelObject = bot.channels.cache.get(theChannelID);
         channelObject.send({ content: contentToSend, embeds: [reminderEmbed], components: [reminderRow] });
     }
     catch (errr) {
@@ -292,7 +313,7 @@ function sendReminder() {
 }
 
 function addUser(idUser) {
-    if (!usersID.includes(idUser)) usersID.push(idUser);
+    if (!usersID.includes(idUser)) { usersID.push(idUser); }
 }
 
 function removeUser(idUser) {
@@ -308,23 +329,42 @@ function removeUser(idUser) {
 function addNotDone(idUser) {
     if (typeof idUser !== 'string') throw new Error('on addNotDone(idUser) : idUser must be string');
     if (isNaN(parseInt(idUser))) { console.log('on addNotDone(idUser) : idUser must be all number'); return; }
-    if (!notDone.includes(idUser)) notDone.push(idUser);
+    if (!notDone.includes(idUser)) {
+        notDone.push(idUser);
+        saveToFile();
+    }
     else {
         console.log('notDone already has idUser ' + idUser);
     }
 }
 
+function saveToFile() {
+
+    fileData['notDone'] = Array.from(notDone);
+    fileSys.writeFileSync(fileName, JSON.stringify(fileData), 'utf-8');
+
+}
+
+function fileToMemory() {
+
+    notDone = Array.from(fileData['notDone']);
+
+}
+
 function removeNotDone(idUser) {
     if (typeof idUser !== 'string') throw new Error('on removeNotDone(idUser) : idUser must be string');
     if (isNaN(parseInt(idUser))) { console.log('on removeNotDone(idUser) : idUser must be all number'); return; }
-    if (notDone.includes(idUser)) notDone.splice(notDone.indexOf(idUser), 1);
+    if (notDone.includes(idUser)) {
+        notDone.splice(notDone.indexOf(idUser), 1);
+        saveToFile();
+    }
     else {
         console.log('notDone doesnt have idUser ' + idUser);
     }
 }
 
 function finishAll() {
-    notDone = [];
+    notDone.length = 0;
 }
 
 function userFinishedWordle(idUserIndex) {
@@ -353,11 +393,12 @@ function removeCantReply(idUser) {
 }
 
 function resetCantReply() {
-    cantReply = [];
+    cantReply.length = 0;
 }
 
 function unfinishEveryone() {
     notDone = Array.from(usersID);
+    saveToFile();
 }
 
 function refreshUser() {
@@ -392,9 +433,8 @@ function changeInterval(duration) {
     scheduleHourlyReminder.destroy();
     scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
         if (!onReady) { console.log('supposed to remind but the bot is not ready yet.'); return; }
-        refreshUser();
         resetCantReply();
-        sendReminder();
+        sendReminder(mainChannelID);
     }, { timezone: 'UTC' });
 }
 
@@ -434,46 +474,114 @@ async function addDelay(miliseconds) {
 }
 
 
+
+
+// async function refreshAllCache() {
+//     let successFetch = 0;
+//     await bot.guilds.fetch().then((guilds) => {
+//         return Promise.all(guilds.map(async (guild) => {
+//             try {
+//                 return Promise.all([
+
+//                     guild.members.fetch(),
+//                     guild.roles.fetch(),
+//                     guild.channels.fetch().then(async (channels) => {
+
+//                         return Promise.all(channels.map(channel => {
+
+//                             if (channel.type == dcJS.ChannelType.GuildText) {
+//                                 if (channel.viewable) {
+//                                     successFetch++;
+//                                     return channel.messages.fetch();
+//                                 }
+//                             }
+
+//                         }));
+
+//                     })
+
+//                 ]);
+//             } finally {
+//                 await addDelay(100)
+//             }
+//         }));
+
+//     });
+//     console.log('Number of success fetch : ' + successFetch);
+// }
+
+
 async function refreshAllCache() {
     let successFetch = 0;
-    await bot.guilds.fetch();
-    await Promise.all(bot.guilds.cache.map(async (guild) => {
-        await guild.members.fetch()
-        await guild.roles.fetch();
-        const channels = await guild.channels.fetch();
-        await Promise.all(channels.map(async element => {
-            if (element.type == 0) {
-                if (element.viewable) {
-                    successFetch++;
-                    await element.messages.fetch();
-                }
-            }
-            // getKeys(element.typ);
-        }));
-        await addDelay(100);
-    }));
+
+    await bot.guilds.fetch().then(async (guilds) => {
+
+        const promises = [];
+        for (const key of guilds.keys()) {
+
+            promises.push(bot.guilds.fetch(key).then((server) => {
+
+                const promises = [];
+                promises.push(server.members.fetch());
+                promises.push(server.roles.fetch());
+                promises.push(server.channels.fetch().then((channels) => {
+
+                    const promises = [];
+                    for (const key of channels.keys()) {
+
+                        const channel = channels.get(key);
+                        if (channel.viewable && channel.type === dcJS.ChannelType.GuildText) {
+                            promises.push(channel.messages.fetch()); successFetch++;
+                        }
+                    }
+                    return Promise.all(promises);
+
+                }));
+                return Promise.all(promises);
+
+            }));
+            await addDelay(100);
+
+        }
+        return Promise.all(promises);
+    });
     console.log('Number of success fetch : ' + successFetch);
 }
 
 
-const scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
+
+
+
+
+
+let scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
     if (!onReady) {
-        console.log('supposed to remind but the bot is not ready yet.');
+        console.log('supposed to remind, but the bot is not ready yet.');
         return;
     }
-    refreshUser();
     resetCantReply();
-    sendReminder();
+    sendReminder(mainChannelID);
 }, { timezone: 'UTC' });
 
-cron.schedule('0 17 * * *', () => { //restart the list
+cron.schedule('30 18 * * *', () => {
     if (!onReady) {
-        console.log('supposed to reset the who finished wordle list to empty but the bot is not ready yet.');
+        console.log('supposed to remind, but the bot is not ready yet.');
+        return;
+    }
+    resetCantReply();
+    sendReminder(mainChannelID);
+}, { timezone: 'UTC' });
+
+cron.schedule('0 17 * * *', () => { //restart the list india time
+    if (!onReady) {
+        console.log('supposed to reset the who finished wordle list to empty, but the bot is not ready yet.');
         return;
     }
     unfinishEveryone();
     resetCantReply();
 }, { timezone: 'UTC' });
+
+main();
 
 
 
