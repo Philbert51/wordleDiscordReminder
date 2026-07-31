@@ -78,7 +78,12 @@ reminderRow.addComponents(reminderButton);
 async function main() {
     try {
 
-        loadDatabaseData();
+        if (loadDatabaseData()) {
+            console.log('database found!');
+        }
+        else {
+            console.log('database not found');
+        }
 
         for (const value of fixedAdminUserIDList) {
 
@@ -604,7 +609,7 @@ function loadDatabaseData() { //returns true if file already exists before
 
         }
 
-        return true
+        return true;
     }
     return false;
 
