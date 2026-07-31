@@ -49,84 +49,84 @@ async function main() {
         // whoisnotdoneCommand.setName(commandNamewhoisnotdone);
         // whoisnotdoneCommand.setDescription("gives the list of who's not done yet");
 
-        // adminCommand = new dcJS.SlashCommandBuilder();
-        // adminCommand.setName(commandNameAdminUser);
-        // adminCommand.setDescription('make someone an admin');
-        // adminCommand.addUserOption((option) => {
-        //     option.setName('userid');
-        //     option.setDescription('make this user an admin');
+        adminCommand = new dcJS.SlashCommandBuilder();
+        adminCommand.setName(commandNameAdminUser);
+        adminCommand.setDescription('make someone an admin');
+        adminCommand.addUserOption((option) => {
+            option.setName('user');
+            option.setDescription('make this user an admin');
+            option.setRequired(true);
+            return option;
+        });
+
+        removeAdminCommand = new dcJS.SlashCommandBuilder(); //changed
+        removeAdminCommand.setName(commandNameRemoveAdminUser);
+        removeAdminCommand.setDescription('de-admin');
+        removeAdminCommand.addUserOption((option) => {
+            option.setName('user');
+            option.setDescription('de-admin this person');
+            option.setRequired(true);
+            return option;
+        });
+
+        // durationCommand = new dcJS.SlashCommandBuilder();
+        // durationCommand.setName(commandNameDurationReminder);
+        // durationCommand.setDescription('set duration interval reminder');
+        // durationCommand.addIntegerOption((option) => {
+
+        //     option.setName('interval');
+        //     option.setDescription('type : int 1 <= x <= 23');
         //     option.setRequired(true);
         //     return option;
-        // });
 
-        // removeAdminCommand = new dcJS.SlashCommandBuilder();
-        // removeAdminCommand.setName(commandNameRemoveAdminUser);
-        // removeAdminCommand.setDescription('de-admin');
-        // removeAdminCommand.addUserOption((option) => {
-        //     option.setName('userid');
-        //     option.setDescription('de-admin this person');
+        // });
+        // loggerCommand = new dcJS.SlashCommandBuilder();
+        // loggerCommand.setName(commandNameLogger);
+        // loggerCommand.setDescription('used for debugging purposes');
+        // loggerCommand.addStringOption((option) => {
+
+        //     option.setName('messageid');
+        //     option.setDescription('message ID : ');
         //     option.setRequired(true);
         //     return option;
+
         // });
 
-        durationCommand = new dcJS.SlashCommandBuilder();
-        durationCommand.setName(commandNameDurationReminder);
-        durationCommand.setDescription('set duration interval reminder');
-        durationCommand.addIntegerOption((option) => {
+        // finishCommand = new dcJS.SlashCommandBuilder();
+        // finishCommand.setName(commandNameFinish);
+        // finishCommand.setDescription("finish someone's wordle");
+        // finishCommand.addUserOption((option) => {
 
-            option.setName('interval');
-            option.setDescription('type : int 1 <= x <= 23');
-            option.setRequired(true);
-            return option;
+        //     option.setName('user');
+        //     option.setDescription('user : ');
+        //     option.setRequired(true);
+        //     return option;
 
-        });
-        loggerCommand = new dcJS.SlashCommandBuilder();
-        loggerCommand.setName(commandNameLogger);
-        loggerCommand.setDescription('used for debugging purposes');
-        loggerCommand.addStringOption((option) => {
+        // });
 
-            option.setName('messageid');
-            option.setDescription('message ID : ');
-            option.setRequired(true);
-            return option;
+        // unfinishCommand = new dcJS.SlashCommandBuilder();
+        // unfinishCommand.setName(commandNameUnfinish);
+        // unfinishCommand.setDescription("unfinish someone's wordle");
+        // unfinishCommand.addUserOption((option) => {
 
-        });
+        //     option.setName('user');
+        //     option.setDescription('user : ');
+        //     option.setRequired(true);
+        //     return option;
 
-        finishCommand = new dcJS.SlashCommandBuilder();
-        finishCommand.setName(commandNameFinish);
-        finishCommand.setDescription("finish someone's wordle");
-        finishCommand.addUserOption((option) => {
-
-            option.setName('user');
-            option.setDescription('user : ');
-            option.setRequired(true);
-            return option;
-
-        });
-
-        unfinishCommand = new dcJS.SlashCommandBuilder();
-        unfinishCommand.setName(commandNameUnfinish);
-        unfinishCommand.setDescription("unfinish someone's wordle");
-        unfinishCommand.addUserOption((option) => {
-
-            option.setName('user');
-            option.setDescription('user : ');
-            option.setRequired(true);
-            return option;
-
-        });
+        // });
 
         
-        finishAllCommand = new dcJS.SlashCommandBuilder();
-        finishAllCommand.setName(commandNameFinishAll);
-        finishAllCommand.setDescription('finish all idk');
+        // finishAllCommand = new dcJS.SlashCommandBuilder();
+        // finishAllCommand.setName(commandNameFinishAll);
+        // finishAllCommand.setDescription('finish all idk');
 
-        commandsToCreate.push(durationCommand, loggerCommand, finishAllCommand, finishCommand, unfinishCommand);
+        commandsToCreate.push();
 
     } catch (e) {
 
         console.log(e.stack);
-        
+
     }
 
 }
@@ -146,9 +146,12 @@ bot.on('clientReady', async () => {
         console.log('client ready');
         await bot.guilds.fetch(serverID).then(async (server) => {
 
-            return Promise.all(commandsToCreate.map((command => {
-                server.commands.create(command);
-            })));
+            await Promise.all([server.commands.delete('1532712077419089930'),
+            server.commands.delete('1532712075321806870')
+            ]);
+            await Promise.all([server.commands.create(adminCommand),
+            server.commands.create(removeAdminCommand),
+            ]);
 
         });
         console.log('success');

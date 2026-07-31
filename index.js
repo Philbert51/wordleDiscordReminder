@@ -11,7 +11,6 @@ let globalFileData = {};
 globalFileData.adminUserIDList = [];
 globalFileData.usersID = [];
 globalFileData.notDone = [];
-globalFileData.notDone.push(...globalFileData.usersID);
 let onReady = false;
 let cantReply = [];
 let intervalHourlyReminder = 12;
@@ -271,12 +270,12 @@ bot.on('interactionCreate', async (evt) => {
                 }
                 else if (evt.commandName === commandNameAdminUser) {
 
-                    makeUserIDAdmin(evt, evt.options.getUser('userid').id);
+                    makeUserIDAdmin(evt, evt.options.getUser('user').id);
 
                 }
                 else if (evt.commandName === commandNameRemoveAdminUser) {
 
-                    removeUserIDAdmin(evt, evt.options.getUser('userid').id);
+                    removeUserIDAdmin(evt, evt.options.getUser('user').id);
 
                 }
                 else if (evt.commandName === commandNamewhoisnotdone) {
@@ -583,13 +582,12 @@ async function sendAutoClick(newMessageObject, interactedUserID) {
 
 }
 
-function loadDatabaseData() {
+function loadDatabaseData() { //returns true if file already exists before
 
     if (fileSys.existsSync('database.json')) {
         globalFileDataSave = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
-        return true;
 
-        for (const key in Object.keys(globalFileData)) {
+        for (const key of Object.keys(globalFileData)) {
 
             if (globalFileDataSave[key] != null) {
 
@@ -604,6 +602,8 @@ function loadDatabaseData() {
             }
 
         }
+
+        return true
     }
     return false;
 
@@ -647,7 +647,7 @@ function addUser(idUser) {
     if (!globalFileData.usersID.includes(idUser)) { globalFileData.usersID.push(idUser); }
 }
 
-function removeUser(idUser) {
+function removeUsergetInteger(idUser) {
     if (typeof idUser !== 'string') {
         throw new Error('removeUser idUser must be string');
     }
