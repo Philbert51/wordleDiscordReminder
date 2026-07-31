@@ -505,7 +505,10 @@ function assignVarToGlobalFileData() {
     else {
          globalFileData['adminUserIDList'] = adminUserIDList;
     }
-
+    if (globalFileData['usersID'] != null) {
+        usersID = globalFileData['usersID'];
+ else {
+        globalFileData['usersID'] = usersID;
 }
 
 function assignGlobalFileDataToVar() {
@@ -524,6 +527,7 @@ function assignGlobalFileDataToVar() {
     }
     globalFileData['notDone'] = notDone;
     globalFileData['adminUserIDList'] = adminUserIDList;
+    globalFileData['usersID'] = usersID;
 
 }
 
