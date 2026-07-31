@@ -507,7 +507,7 @@ function assignVarToGlobalFileData() {
     }
     if (globalFileData['usersID'] != null) {
         usersID = globalFileData['usersID'];
- else {
+    }else {
         globalFileData['usersID'] = usersID;
     }
 }
