@@ -1,79 +1,24 @@
-// const fileSys = require('fs');
-// let fileObject = {};
-// let persistentData = '';
+const dcJS = require('discord.js');
+const dotenvi = require('dotenv'); dotenvi.config({ path: ['./botToken.env'] });
+const wordlers = new dcJS.SlashCommandBuilder();
+const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
+const token = process.env.token;
 
+wordlers.setName('wordlers');
+wordlers.setDescription('list of wordlers');
 
-// fileObject.notDone = notDone.toString();
+const serverID = '781739449288491041';
+const wordleRoleID = '1529803137131741345'; //⚠⚠⚠⚠⚠change when release
+const mainChannelID = '824499899306737674';
 
+bot.login(token);
 
-// async function main() {
-//     await fileSys.writeFile('database.json', JSON.stringify(fileObject), 'utf-8', (err) => {
-//         if (err) console.log(err.stack);
-//     });
-//     if (!fileSys.existsSync('database.json')) { console.log('database.json file not found'); return; }
-//     await new Promise((res, reject) => {
-//         fileSys.readFile('database.json', 'utf-8', (err, databaseData) => {
-//             if (err) { console.log(err.stack); return; }
-//             persistentData = JSON.parse(databaseData);
-//             res();
-//         })
-//     });
-//     console.log(persistentData);
-//     console.log(typeof persistentData);
-// }
-
-// main();
-
-
-
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-const tempArray = [1, 2, 3, 4]
-let fetches = 0;
-let promiseList = [];
-
-function randomAssFetchSimulator(secondLimit) {
-    fetches++;
-    const processID = fetches;
-    console.log('fetches : ' + fetches);
-    return new Promise((res, rej) => {
-        setTimeout(() => {
-            res(); console.log('processID resolved : ' + processID); onUpdate();
-        }, Math.ceil(Math.random() * secondLimit) * 1000);
-    })
-}
-
-
-async function addDelay(miliseconds) {
-    //trying to addDelay
-    onUpdate();
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            onUpdate();
-            resolve();
-        }, miliseconds);
+bot.on('clientReady', () => {
+    bot.guilds.fetch(serverID).then ((server) => {
     });
-}
+});
 
-
-async function main() {
-    console.log(await Promise.all(tempArray.map(async (v) => {
-        onUpdate();
-        console.log(v + ' runs');
-        await addDelay(5000);
-        const fetch = randomAssFetchSimulator(10);
-        promiseList.push(fetch);
-        return fetch;
-    })));
-    console.log('main done running');
-}
-
-function onUpdate() {
-    console.log(promiseList);
-}
-
-
-main();
-
-
+bot.on('interactionCreate', (evt)=> {
+    console.log(evt.options.getUser('user'));
+}); 
 

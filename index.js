@@ -2,15 +2,17 @@ const dcJS = require('discord.js');
 const cron = require('node-cron');
 const dotenvi = require('dotenv'); dotenvi.config({ path: ['./botToken.env'] });
 const fileSys = require('fs');
+const { parse } = require('path');
 const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
 const token = process.env.token;
 const fileName = 'database.json';
-let fileData = {};
+let fixedAdminUserIDList = ['480316607223169045'];
+let adminUserIDList = [];
+let globalFileData = {};
 let onReady = false;
 let usersID = [];
-let notDone = Array.from(usersID);
+let notDone = []; notDone.push(...usersID);
 let cantReply = [];
-let authorizedUserID = ['480316607223169045'];
 let intervalHourlyReminder = 12;
 let reminderList = [
     '🟩🟨⬜',
@@ -44,6 +46,13 @@ const finishAllUserKeyword = '[finish_all';
 const whoIsNotDoneKeyword = '[whoisnotdone';
 const loggerKeyword = '[log ';
 
+const commandNameListUsers = 'wordlers';
+const commandNameAdminUser = 'admin';
+const commandNameRemoveAdminUser = 'remove_admin';
+const commandNamewhoisnotdone = 'whoisnotdone';
+const commandNameDurationReminder = 'duration';
+const commandNameLogger = 'logMessageInfo';
+
 //initialization
 
 const undoButtonCustomId = 'btnUndo ';
@@ -65,8 +74,29 @@ reminderRow.addComponents(reminderButton);
 async function main() {
     try {
 
-        loadDatabaseData() ? fileToMemory() : saveToFile();
-        await bot.login(token);
+        if (loadDatabaseData()) {
+
+            assignVarToGlobalFileData();
+
+        }
+        else {
+
+            assignGlobalFileDataToVar();
+            saveGlobalFileDataToJSON();
+
+        }
+
+        for (const value of fixedAdminUserIDList) {
+
+            if (!adminUserIDList.includes(value)) {
+
+                adminUserIDList.push(value);
+
+            }
+
+        }
+
+        bot.login(token);
 
     } catch (e) {
 
@@ -81,7 +111,8 @@ bot.on('clientReady', async () => {
         // await server.roles.fetch();
         // await server.channels.fetch();
         await refreshAllCache();
-        refreshUser();
+        refreshUsersIDandNotDone();
+        saveGlobalFileDataToJSON();
         onReady = true;
         console.log("---> bot ready!");
         console.log(notDone);
@@ -89,7 +120,9 @@ bot.on('clientReady', async () => {
         // removeNotDone('480316607223169045');
     }
     catch (errr) {
+
         console.log(errr.stack);
+
     }
 });
 
@@ -114,20 +147,8 @@ bot.on('messageCreate', async function (messageObject) {
                 removeNotDone(interactedUserID);
             }
         }
-        if (!messageObject.author.bot && authorizedUserID.includes(messageObject.author.id)) {
-            if (messageContent === listUsersIDKeyword) {
-                if (usersID.length > 0) {
-                    let contentToSend = '';
-                    for (const id of usersID) {
-                        contentToSend += '<@' + id + '>';
-                    }
-                    messageObject.reply({ content: contentToSend, allowedMentions: { repliedUser: true } });
-                }
-                else {
-                    messageObject.reply({ content: 'Nobody listed yet!' });
-                }
-            }
-            else if (messageContent.startsWith(intervalReminderKeyword)) {
+        if (!messageObject.author.bot && adminUserIDList.includes(messageObject.author.id)) {
+            if (messageContent.startsWith(intervalReminderKeyword)) {
                 const tempArray = messageContent.split(" ");
                 if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
                 changeInterval(tempArray[1]);
@@ -146,17 +167,7 @@ bot.on('messageCreate', async function (messageObject) {
                 finishAll();
             }
             else if (messageContent === whoIsNotDoneKeyword) {
-                let temp = '';
-                if (notDone.length > 0) {
-                    for (const id of notDone) {
-                        temp += '<@' + id + '>';
-                    }
-                    messageObject.reply({ content: temp, allowedMentions: { repliedUser: true } });
-                }
-                else {
-                    temp = 'everyone is done!';
-                    messageObject.reply({ content: temp });
-                }
+
             }
             else if (messageContent.startsWith(loggerKeyword)) {
                 const tempArray = messageContent.split(' ');
@@ -169,7 +180,14 @@ bot.on('messageCreate', async function (messageObject) {
         }
     }
     catch (E) {
+
         console.log(E.stack);
+
+    }
+    finally {
+
+        saveGlobalFileDataToJSON();
+
     }
 });
 
@@ -177,7 +195,7 @@ bot.on('messageUpdate', async (oldMessage, newMessage) => {
     if (!onReady) { console.log('received messageUpdate event but bot is not ready yet.'); return; }
     try {
         const messageContent = newMessage.content;
-        if (newMessage.author.id === wordleBotID) { //change this
+        if (newMessage.author.id === wordleBotID) { 
             if (messageContent.includes('was playing') || messageContent.includes('were playing')) {
                 if (newMessage.attachments.firstKey() == null) {
                     console.log('found was/were playing but no attachments was detected');
@@ -193,68 +211,321 @@ bot.on('messageUpdate', async (oldMessage, newMessage) => {
             }
         }
     } catch (e) {
+
         console.log(e.stack);
+
+    } finally {
+
+        saveGlobalFileDataToJSON();
+
     }
 });
 
 bot.on('guildMemberUpdate', (oldMemberInfo, newMemberInfo) => {
     if (oldMemberInfo.roles.cache !== newMemberInfo.roles.cache) {
-        refreshUser();
+        refreshUsersIDandNotDone();
+        saveGlobalFileDataToJSON();
     }
 });
 
 
 bot.on('interactionCreate', async (evt) => {
+
     try {
         if (!onReady) return;
-        if (evt.customId === 'btnYes') {
-            const evtUserId = evt.user.id;
-            if (!cantReply.includes(evtUserId)) {
-                addCantReply(evtUserId);
-                await evt.reply({ content: 'Loading....', flags: dcJS.MessageFlags.Ephemeral });
-                const index = notDone.indexOf(evtUserId)
-                if (index !== -1) {
-                    const contentToSend = 'ok, will stop reminding you today!';
+        if (evt.isButton()) { //for button related stuff!!
+
+            if (evt.customId === 'btnYes') {
+
+                const evtUserId = evt.user.id;
+                if (!cantReply.includes(evtUserId)) {
+
+                    addCantReply(evtUserId);
+                    await evt.reply({ content: 'Loading....', flags: dcJS.MessageFlags.Ephemeral });
+                    const index = notDone.indexOf(evtUserId)
+                    if (index !== -1) {
+
+                        const contentToSend = 'ok, will stop reminding you today!';
+                        await evt.editReply({ content: contentToSend, flags: dcJS.MessageFlags.Ephemeral });
+                        userFinishedWordle(index);
+                        return;
+
+                    }
+                    const contentToSend = "you are already done or you're not on the list!!";
                     await evt.editReply({ content: contentToSend, flags: dcJS.MessageFlags.Ephemeral });
-                    userFinishedWordle(index);
-                    return;
+
                 }
-                const contentToSend = "you are already done or you're not on the list!!";
-                await evt.editReply({ content: contentToSend, flags: dcJS.MessageFlags.Ephemeral });
+
             }
+            else if (evt.customId.startsWith(undoButtonCustomId)) {
+
+                undoButton(evt);
+
+            }
+
         }
-        else if (evt.customId.startsWith(undoButtonCustomId)) {
-            const tempArray = evt.customId.split(' ');
-            if (tempArray.length !== 2) { console.log('btnUndo received more or less than 2 array keys'); return; }
-            const intendedUserID = tempArray[1];
-            if (!(evt.user.id === intendedUserID)) { console.log('someone other than the targeted user clicked the button.'); console.log('Intended for : ' + intendedUserID + ', clicked by : ' + evt.user.id); return; }
-            addNotDone(intendedUserID);
-            await evt.reply({ content: 'ok!', flags: dcJS.MessageFlags.Ephemeral });
-            const currentRow = dcJS.ActionRowBuilder.from(evt.message.components);
-            let button = '';
-            if (!(currentRow == null)) {
-                for (const key in Object.keys(currentRow.data)) {
-                    if (!(typeof currentRow.data[key] === 'object')) continue;
-                    button = (currentRow.data[key].components)[0];
-                    if (button == null) continue;
-                    if (!button.custom_id.startsWith(undoButtonCustomId)) continue;
-                    button = dcJS.ButtonBuilder.from(button);
-                    button.setDisabled(true);
-                    delete currentRow.data[key];
-                    currentRow.addComponents(button);
+        else if (evt.isCommand()) { //for all command related stuff!!
+
+            if (adminUserIDList.includes(evt.user.id)) {//for commands that needs permission
+
+                if (evt.commandName === commandNameListUsers) { //listing wordlers
+
+                    sendUserIDList(evt);
+
                 }
-                await evt.message.edit({ components: [currentRow] });
+                else if (evt.commandName === commandNameAdminUser) {
+
+                    makeUserIDAdmin(evt, evt.command.getUser('userid').id);
+
+                }
+                else if (evt.commandName === commandNameRemoveAdminUser) {
+
+                    removeUserIDAdmin(evt, evt.command.getUser('userid').id);
+
+                }
+                else if (evt.commandName === commandNamewhoisnotdone) {
+
+                    whoisnotdone(evt);
+
+                }
+                else if (evt.commandName === commandNameLogger) {
+
+
+
+                }
+
             }
             else {
-                console.log('currentRow is null');
+
+
             }
+
         }
     } catch (errr) {
+
         console.log(errr.stack);
+
+    }
+    finally {
+
+        saveGlobalFileDataToJSON();
+
     }
 });
 
 
+function whoisnotdone(event) {
+    let temp = '';
+    if (notDone.length > 0) {
+        for (const id of notDone) {
+            temp += '<@' + id + '>';
+        }
+        event.reply({ content: temp, allowedMentions: { repliedUser: true } });
+    }
+    else {
+        temp = 'everyone is done!';
+        event.reply({ content: temp });
+    }
+}
+
+async function undoButton(interactionEvent) {
+
+    const tempArray = interactionEvent.customId.split(' ');
+    if (tempArray.length !== 2) {
+
+        console.log('btnUndo received more or less than 2 array keys');
+        return;
+
+    }
+    const intendedUserID = tempArray[1];
+    if (!(interactionEvent.user.id === intendedUserID)) {
+
+        console.log('someone other than the targeted user clicked the button.');
+        console.log('Intended for : ' + intendedUserID + ', clicked by : ' + evt.user.id);
+        return;
+
+    }
+    addNotDone(intendedUserID);
+    await interactionEvent.reply({ content: 'ok!', flags: dcJS.MessageFlags.Ephemeral });
+    const currentRow = dcJS.ActionRowBuilder.from(interactionEvent.message.components);
+    let button = '';
+    if (!(currentRow == null)) {
+
+        for (const key in Object.keys(currentRow.data)) {
+
+            if (!(typeof currentRow.data[key] === 'object')) continue;
+            button = dcJS.ButtonBuilder.from((currentRow.data[key].components)[0]);
+            if (button == null) continue;
+            if (!button.data.custom_id.startsWith(undoButtonCustomId)) continue;
+            button.setDisabled(true);
+            delete currentRow.data[key];
+            currentRow.addComponents(button);
+
+        }
+        await interactionEvent.message.edit({ components: [currentRow] });
+
+    }
+    else {
+
+        console.log('currentRow is null');
+
+    }
+
+}
+
+function makeUserIDAdmin(event, idUser) {
+
+    if (fixedAdminUserIDList.includes(idUser)) {
+
+        event.reply({ content: "You can't add <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+        return;
+
+    }
+    if (addAdminUser(idUser)) {
+
+        event.reply({ content: 'Successfully added : <@' + idUser + '>', allowedMentions: { repliedUser: true } });
+
+    }
+    else {
+        event.reply({ content: "You can't add <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+    }
+}
+
+function removeUserIDAdmin(event, idUser) {
+
+    if (fixedAdminUserIDList.includes(idUser)) {
+
+        event.reply({ content: "You can't remove <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+        return;
+
+    }
+    if (removeAdminUser(idUser)) {
+
+        event.reply({ content: 'Successfully removed : <@' + idUser + '>', allowedMentions: { repliedUser: true } });
+    
+    } else {
+
+        event.reply({ content: "You can't remove <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+
+    }
+}
+
+function sendUserIDList(event) {
+
+    if (usersID.length > 0) {
+
+        let contentToSend = '';
+        for (const id of usersID) {
+
+            contentToSend += '<@' + id + '>';
+
+        }
+        event.reply({ content: contentToSend, allowedMentions: { repliedUser: true } });
+
+    }
+    else {
+        event.reply({ content: 'Nobody listed yet!' });
+    }
+}
+
+
+
+function addAdminUser(idUser) {
+
+    if (typeof idUser !== 'string' || isNaN(parseInt(idUser))) {
+
+        console.log('Error addAdminUser : type of idUser argument is not a string or is not a whole integer');
+        console.log('idUser : ' + idUser);
+        return;
+
+    }
+    if (!adminUserIDList.includes(idUser)) {
+
+        adminUserIDList.push(idUser);
+        return true;
+
+    }
+    else {
+
+        console.log('adminUserIDList already contains : ' + idUser);
+        return false;
+
+    }
+
+}
+
+
+function removeAdminUser(idUser) {
+
+    if (typeof idUser !== 'string' || isNaN(parseInt(idUser))) {
+
+        console.log('Error removeAdminUser : type of idUser argument is not a string or is not a whole integer');
+        console.log('idUser : ' + idUser);
+        return;
+
+    }
+    if (adminUserIDList.includes(idUser)) {
+
+        adminUserIDList.splice(adminUserIDList.indexOf(idUser), 1);
+        return true;
+
+    }
+    else {
+
+        console.log('adminUserIDList does not contain : ' + idUser);
+        return false;
+
+    }
+
+}
+
+function assignVarToGlobalFileData() {
+
+    if (typeof notDone !== 'object') {
+
+        console.log('notDone is not an object!');
+        return;
+
+    }
+    if (typeof adminUserIDList !== 'object') {
+
+        console.log('adminUserIDList is not an object!');
+        return;
+
+    }
+    if (globalFileData['notDone'] != null) {
+    notDone = globalFileData['notDone'];
+    }
+    else {
+        globalFileData['notDone'] = notDone;
+    }
+    if (globalFileData['adminUserIDList'] != null) {
+    adminUserIDList = globalFileData['adminUserIDList'];
+    }
+    else {
+         globalFileData['adminUserIDList'] = adminUserIDList;
+    }
+
+}
+
+function assignGlobalFileDataToVar() {
+
+    if (typeof notDone !== 'object') {
+
+        console.log('notDone is not an object!');
+        return;
+
+    }
+    if (typeof adminUserIDList !== 'object') {
+
+        console.log('adminUserIDList is not an object!');
+        return;
+
+    }
+    globalFileData['notDone'] = notDone;
+    globalFileData['adminUserIDList'] = adminUserIDList;
+
+}
 
 
 async function sendAutoClick(newMessageObject, interactedUserID) {
@@ -282,7 +553,7 @@ async function sendAutoClick(newMessageObject, interactedUserID) {
 
 function loadDatabaseData() {
     if (fileSys.existsSync('database.json')) {
-        fileData = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
+        globalFileData = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
         return true;
     }
     return false;
@@ -331,23 +602,22 @@ function addNotDone(idUser) {
     if (isNaN(parseInt(idUser))) { console.log('on addNotDone(idUser) : idUser must be all number'); return; }
     if (!notDone.includes(idUser)) {
         notDone.push(idUser);
-        saveToFile();
+        globalFileData['notDone'] = notDone;
     }
     else {
         console.log('notDone already has idUser ' + idUser);
     }
 }
 
-function saveToFile() {
+function saveGlobalFileDataToJSON() {
 
-    fileData['notDone'] = Array.from(notDone);
-    fileSys.writeFileSync(fileName, JSON.stringify(fileData), 'utf-8');
+    fileSys.writeFileSync(fileName, JSON.stringify(globalFileData), 'utf-8');
 
 }
 
-function fileToMemory() {
+function saveToGlobalFileData() {
 
-    notDone = Array.from(fileData['notDone']);
+    notDone = globalFileData['notDone'];
 
 }
 
@@ -356,7 +626,7 @@ function removeNotDone(idUser) {
     if (isNaN(parseInt(idUser))) { console.log('on removeNotDone(idUser) : idUser must be all number'); return; }
     if (notDone.includes(idUser)) {
         notDone.splice(notDone.indexOf(idUser), 1);
-        saveToFile();
+        globalFileData['notDone'] = notDone;
     }
     else {
         console.log('notDone doesnt have idUser ' + idUser);
@@ -397,11 +667,11 @@ function resetCantReply() {
 }
 
 function unfinishEveryone() {
-    notDone = Array.from(usersID);
-    saveToFile();
+    notDone.length = 0;
+    notDone.push(...usersID);
 }
 
-function refreshUser() {
+function refreshUsersIDandNotDone() {
     const server = bot.guilds.cache.get(serverID);
     if (server == null) throw new Error('error at clientReady : ' + 'server is null');
     const role = server.roles.cache.get(wordleRoleID);    //
@@ -572,12 +842,13 @@ cron.schedule('30 18 * * *', () => {
     sendReminder(mainChannelID);
 }, { timezone: 'UTC' });
 
-cron.schedule('0 17 * * *', () => { //restart the list india time
+cron.schedule('0 17 * * *', () => { //restart the list 
     if (!onReady) {
         console.log('supposed to reset the who finished wordle list to empty, but the bot is not ready yet.');
         return;
     }
     unfinishEveryone();
+    saveGlobalFileDataToJSON();
     resetCantReply();
 }, { timezone: 'UTC' });
 
