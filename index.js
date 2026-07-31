@@ -333,6 +333,12 @@ bot.on('interactionCreate', async (evt) => {
 function finishWordle(event) {
 
     const userID = event?.options?.getUser('user').id;
+    if (!globalFileData.usersID.includes(userID)) {
+
+        event.reply({ content : '<@' + userID + '> does not have wordlers role'});
+        return;
+
+    }
     if (userID != null) {
 
         removeNotDone(userID);
@@ -350,6 +356,12 @@ function finishWordle(event) {
 function unfinishWordle(event) {
 
     const userID = event?.options?.getUser('user').id;
+    if (!globalFileData.usersID.includes(userID)) {
+
+        event.reply({ content : '<@' + userID + '> does not have wordlers role'});
+        return;
+
+    }
     if (userID != null) {
 
         addNotDone(userID);
