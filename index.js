@@ -10,7 +10,7 @@ let fixedAdminUserIDList = ['480316607223169045'];
 let globalFileData = {};
 globalFileData.adminUserIDList = [];
 globalFileData.usersID = [];
-globalFileData.notDone = []; 
+globalFileData.notDone = [];
 globalFileData.notDone.push(...globalFileData.usersID);
 let onReady = false;
 let cantReply = [];
@@ -51,8 +51,11 @@ const commandNameListUsers = 'wordlers';
 const commandNameAdminUser = 'admin';
 const commandNameRemoveAdminUser = 'remove_admin';
 const commandNamewhoisnotdone = 'whoisnotdone';
-const commandNameDurationReminder = 'duration';
-const commandNameLogger = 'logMessageInfo';
+const commandNameDurationReminder = 'reminder_interval';
+const commandNameLogger = 'log_message_info';
+const commandNameFinish = 'finish';
+const commandNameUnfinish = 'unfinish';
+const commandNameFinishAll = 'finish_all';
 
 //initialization
 
@@ -124,7 +127,9 @@ bot.on('messageCreate', async function (messageObject) {
         const messageContent = messageObject.content;
         if (messageObject.author.id === wordleBotID) {
             if (messageContent.includes('was playing') || messageContent.includes('were playing')) {
+
                 if (messageObject.attachments.firstKey() == null) {
+
                     console.log('found was/were playing but no attachments was detected');
                     return;
                 }
@@ -132,41 +137,15 @@ bot.on('messageCreate', async function (messageObject) {
                     console.log('Attachment has unfinished');
                     return;
                 }
-                const interactedUserID = messageObject.interactionMetadata.user.id
+                const interactedUserID = messageObject.interactionMetadata.user.id;
+                if (!globalFileData.usersID.includes(interactedUserID)) return; //ignore if not in wordlers role
                 await sendAutoClick(messageObject, interactedUserID);
                 removeNotDone(interactedUserID);
+
             }
         }
         if (!messageObject.author.bot && globalFileData.adminUserIDList.includes(messageObject.author.id)) {
-            if (messageContent.startsWith(intervalReminderKeyword)) {
-                const tempArray = messageContent.split(" ");
-                if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
-                changeInterval(tempArray[1]);
-            }
-            else if (messageContent.startsWith(finishWordleKeyword)) {
-                const tempArray = messageContent.split(" ");
-                if (tempArray.length !== 2) throw new Error("finishWordleKeyword format not valid");
-                removeNotDone(tempArray[1]);
-            }
-            else if (messageContent.startsWith(unfinishedWordleKeyword)) {
-                const tempArray = messageContent.split(" ");
-                if (tempArray.length !== 2) throw new Error("unfinishedWordleKeyword format not valid");
-                addNotDone(tempArray[1]);
-            }
-            else if (messageContent === finishAllUserKeyword) {
-                finishAll();
-            }
-            else if (messageContent === whoIsNotDoneKeyword) {
-
-            }
-            else if (messageContent.startsWith(loggerKeyword)) {
-                const tempArray = messageContent.split(' ');
-                if (tempArray.length !== 2) {
-                    console.log("Error format in loggerKeyword");
-                    return;
-                }
-                await logMessageInfo(mainChannelID, tempArray[1]);
-            }
+            
         }
     }
     catch (E) {
@@ -248,6 +227,7 @@ bot.on('guildMemberUpdate', (oldMemberInfo, newMemberInfo) => {
 bot.on('interactionCreate', async (evt) => {
 
     try {
+
         if (!onReady) return;
         if (evt.isButton()) { //for button related stuff!!
 
@@ -306,7 +286,27 @@ bot.on('interactionCreate', async (evt) => {
                 }
                 else if (evt.commandName === commandNameLogger) {
 
+                    logMessageInfo(evt, evt.options.getString('messageid'));
 
+                }
+                else if (evt.commandName === commandNameFinish) {
+
+                    finishWordle(evt);
+
+                }
+                else if (evt.commandName === commandNameUnfinish) {
+
+                    unfinishWordle(evt);
+
+                }
+                else if (evt.commandName === commandNameFinishAll) {
+
+                    finishAll(evt);
+
+                }
+                else if (evt.commandName === commandNameDurationReminder) {
+
+                    changeInterval(evt);
 
                 }
 
@@ -317,6 +317,7 @@ bot.on('interactionCreate', async (evt) => {
             }
 
         }
+
     } catch (errr) {
 
         console.log(errr.stack);
@@ -328,6 +329,40 @@ bot.on('interactionCreate', async (evt) => {
 
     }
 });
+
+function finishWordle(event) {
+
+    const userID = event?.options?.getUser('user').id;
+    if (userID != null) {
+
+        removeNotDone(userID);
+        event.reply({ content: 'finish success.' });
+
+    }
+    else {
+
+        event.reply({ content: 'data corrupted somehow??????????'});
+
+    }
+
+}
+
+function unfinishWordle(event) {
+
+    const userID = event?.options?.getUser('user').id;
+    if (userID != null) {
+
+        addNotDone(userID);
+        event.reply({ content: 'unfinish success.' });
+
+    }
+    else {
+
+        event.reply({ content: 'data corrupted somehow??????????'});
+
+    }
+
+}
 
 
 function whoisnotdone(event) {
@@ -641,9 +676,19 @@ function removeNotDone(idUser) {
 
 }
 
-function finishAll() {
+function finishAll(event) {
 
-    globalFileData.notDone.length = 0;
+    if (globalFileData.notDone.length > 0) {
+
+        globalFileData.notDone.length = 0;
+        event.reply({ content : 'cleared everyone!'});
+
+    }
+    else {
+
+        event.reply({ content : 'Everybody is done, nothing to clear'});
+
+    }
 
 }
 
@@ -733,10 +778,17 @@ function refreshUsersIDandNotDone() {
     // console.log(iteration + " starts at 1");
 }
 
-function changeInterval(duration) {
+function changeInterval(event) {
 
-    if (isNaN(parseInt(duration))) throw new Error("Interval duration must be a number!");
-    intervalHourlyReminder = duration;
+    const tempInterval = parseInt(event.options.getInteger('interval'));
+    if (isNaN(tempInterval)) throw new Error("Interval duration must be a number!");
+    if (tempInterval < 1 || tempInterval > 23) {
+
+        event.reply( { content : 'Not a valid number range, must be 1 <= x <= 23' });
+        return;
+
+    }
+    intervalHourlyReminder = tempInterval
     scheduleHourlyReminder.destroy();
     scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
 
@@ -750,6 +802,7 @@ function changeInterval(duration) {
         sendReminder(mainChannelID);
 
     }, { timezone: 'UTC' });
+    event.reply('Interval set : ' +  intervalHourlyReminder);
 
 }
 
@@ -774,21 +827,21 @@ function getKeys(object) {
 
 }
 
-async function logMessageInfo(channelID/* the channel*/, messageID /*the message ID to look up*/) {
+async function logMessageInfo(event/* the channel*/, messageID /*the message ID to look up*/) {
 
-    if (typeof channelID !== 'string') {
+    if (typeof event.channelId !== 'string') {
 
         console.log('Error in logMessageInfo : logMessageInfo argument must be string format');
         return;
 
     }
-    if (isNaN(parseInt(channelID))) {
+    if (isNaN(parseInt(event.channelId))) {
 
         console.log('Error in logMessageInfo : logMessageInfo argument must be int parse-able');
         return;
 
     }
-    const channelObject = await bot.channels.fetch(channelID);
+    const channelObject = await bot.channels.fetch(event.channelId);
     if (channelObject == null) {
 
         console.log('Error logMessageInfo : channel not found');

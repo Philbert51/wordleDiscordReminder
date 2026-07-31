@@ -17,61 +17,116 @@ const commandNameListUsers = 'wordlers';
 const commandNameAdminUser = 'admin';
 const commandNameRemoveAdminUser = 'remove_admin';
 const commandNamewhoisnotdone = 'whoisnotdone';
-const commandNameDurationReminder = 'duration';
-const commandNameLogger = 'logMessageInfo';
+const commandNameDurationReminder = 'reminder_interval';
+const commandNameLogger = 'log_message_info';
+const commandNameFinish = 'finish';
+const commandNameUnfinish = 'unfinish';
+const commandNameFinishAll = 'finish_all';
 
-let removeAdminCommand = undefined;
-let adminCommand = undefined;
-let wordlersCommand = undefined;
+const commandsToCreate = [];
+
+
+// let removeAdminCommand = undefined;
+// let adminCommand = undefined;
+// let wordlersCommand = undefined;
+// let whoisnotdoneCommand = undefined;
 let durationCommand = undefined;
-let undoFinishCommand = undefined;
-let finishAllUserCommand = undefined;
+let finishCommand = undefined;
+let unfinishCommand = undefined;
+let finishAllCommand = undefined;
 let loggerCommand = undefined;
-let whoisnotdoneCommand = undefined;
+
 
 async function main() {
     try {
         bot.login('MTAwODY5OTI0NDk0MjczMzMzMg.GPoyCt.Cs17woxP6al1h6cj0Ikpsu-YTUph6tLjft3CaM');
 
-        wordlersCommand = new dcJS.SlashCommandBuilder();
-        wordlersCommand.setName(commandNameListUsers);
-        wordlersCommand.setDescription('gives the list of current wordlers');
+        // wordlersCommand = new dcJS.SlashCommandBuilder();
+        // wordlersCommand.setName(commandNameListUsers);
+        // wordlersCommand.setDescription('gives the list of current wordlers');
 
-        whoisnotdoneCommand = new dcJS.SlashCommandBuilder();
-        whoisnotdoneCommand.setName(commandNamewhoisnotdone);
-        whoisnotdoneCommand.setDescription("gives the list of who's not done yet");
+        // whoisnotdoneCommand = new dcJS.SlashCommandBuilder();
+        // whoisnotdoneCommand.setName(commandNamewhoisnotdone);
+        // whoisnotdoneCommand.setDescription("gives the list of who's not done yet");
 
-        adminCommand = new dcJS.SlashCommandBuilder();
-        adminCommand.setName(commandNameAdminUser);
-        adminCommand.setDescription('make someone an admin');
-        adminCommand.addUserOption((option) => {
-            option.setName('userid');
-            option.setDescription('make this user an admin');
-            option.setRequired(true);
-            return option;
-        });
+        // adminCommand = new dcJS.SlashCommandBuilder();
+        // adminCommand.setName(commandNameAdminUser);
+        // adminCommand.setDescription('make someone an admin');
+        // adminCommand.addUserOption((option) => {
+        //     option.setName('userid');
+        //     option.setDescription('make this user an admin');
+        //     option.setRequired(true);
+        //     return option;
+        // });
 
-        removeAdminCommand = new dcJS.SlashCommandBuilder();
-        removeAdminCommand.setName(commandNameRemoveAdminUser);
-        removeAdminCommand.setDescription('de-admin');
-        removeAdminCommand.addUserOption((option) => {
-            option.setName('userid');
-            option.setDescription('de-admin this person');
-            option.setRequired(true);
-            return option;
-        });
+        // removeAdminCommand = new dcJS.SlashCommandBuilder();
+        // removeAdminCommand.setName(commandNameRemoveAdminUser);
+        // removeAdminCommand.setDescription('de-admin');
+        // removeAdminCommand.addUserOption((option) => {
+        //     option.setName('userid');
+        //     option.setDescription('de-admin this person');
+        //     option.setRequired(true);
+        //     return option;
+        // });
 
         durationCommand = new dcJS.SlashCommandBuilder();
         durationCommand.setName(commandNameDurationReminder);
-        durationCommand.setDescription('set duration reminder');
+        durationCommand.setDescription('set duration interval reminder');
         durationCommand.addIntegerOption((option) => {
-            option.setName('duration');
-            option.setDescription('type : int');
+
+            option.setName('interval');
+            option.setDescription('type : int 1 <= x <= 23');
             option.setRequired(true);
             return option;
+
         });
+        loggerCommand = new dcJS.SlashCommandBuilder();
+        loggerCommand.setName(commandNameLogger);
+        loggerCommand.setDescription('used for debugging purposes');
+        loggerCommand.addStringOption((option) => {
+
+            option.setName('messageid');
+            option.setDescription('message ID : ');
+            option.setRequired(true);
+            return option;
+
+        });
+
+        finishCommand = new dcJS.SlashCommandBuilder();
+        finishCommand.setName(commandNameFinish);
+        finishCommand.setDescription("finish someone's wordle");
+        finishCommand.addUserOption((option) => {
+
+            option.setName('user');
+            option.setDescription('user : ');
+            option.setRequired(true);
+            return option;
+
+        });
+
+        unfinishCommand = new dcJS.SlashCommandBuilder();
+        unfinishCommand.setName(commandNameUnfinish);
+        unfinishCommand.setDescription("unfinish someone's wordle");
+        unfinishCommand.addUserOption((option) => {
+
+            option.setName('user');
+            option.setDescription('user : ');
+            option.setRequired(true);
+            return option;
+
+        });
+
+        
+        finishAllCommand = new dcJS.SlashCommandBuilder();
+        finishAllCommand.setName(commandNameFinishAll);
+        finishAllCommand.setDescription('finish all idk');
+
+        commandsToCreate.push(durationCommand, loggerCommand, finishAllCommand, finishCommand, unfinishCommand);
+
     } catch (e) {
+
         console.log(e.stack);
+        
     }
 
 }
@@ -85,19 +140,23 @@ const bot = new dcJS.Client({
 
 
 
-bot.on('clientReady', () => {
+bot.on('clientReady', async () => {
 
     try {
         console.log('client ready');
-        bot.guilds.fetch(serverID).then((server) => {
-            Promise.all([server.commands.create(wordlersCommand),
-            server.commands.create(removeAdminCommand),
-            server.commands.create(adminCommand),
-            server.commands.create(whoisnotdoneCommand)]);
-            console.log('success');
+        await bot.guilds.fetch(serverID).then(async (server) => {
+
+            return Promise.all(commandsToCreate.map((command => {
+                server.commands.create(command);
+            })));
+
         });
+        console.log('success');
+
     } catch (e) {
+
         console.log(e.stack);
+
     }
 
 });
