@@ -7,11 +7,12 @@ const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
 const token = process.env.token;
 const fileName = 'database.json';
 let fixedAdminUserIDList = ['480316607223169045'];
-let adminUserIDList = [];
 let globalFileData = {};
+globalFileData.adminUserIDList = [];
+globalFileData.usersID = [];
+globalFileData.notDone = []; 
+globalFileData.notDone.push(...globalFileData.usersID);
 let onReady = false;
-let usersID = [];
-let notDone = []; notDone.push(...usersID);
 let cantReply = [];
 let intervalHourlyReminder = 12;
 let reminderList = [
@@ -74,23 +75,13 @@ reminderRow.addComponents(reminderButton);
 async function main() {
     try {
 
-        if (loadDatabaseData()) {
-
-            assignVarToGlobalFileData();
-
-        }
-        else {
-
-            assignGlobalFileDataToVar();
-            saveGlobalFileDataToJSON();
-
-        }
+        loadDatabaseData();
 
         for (const value of fixedAdminUserIDList) {
 
-            if (!adminUserIDList.includes(value)) {
+            if (!globalFileData.adminUserIDList.includes(value)) {
 
-                adminUserIDList.push(value);
+                globalFileData.adminUserIDList.push(value);
 
             }
 
@@ -115,7 +106,6 @@ bot.on('clientReady', async () => {
         saveGlobalFileDataToJSON();
         onReady = true;
         console.log("---> bot ready!");
-        console.log(notDone);
         // await sendAutoClick(await bot.channels.cache.get(channelID).messages.fetch('1531583517106896977'), '480316607223169045');
         // removeNotDone('480316607223169045');
     }
@@ -147,7 +137,7 @@ bot.on('messageCreate', async function (messageObject) {
                 removeNotDone(interactedUserID);
             }
         }
-        if (!messageObject.author.bot && adminUserIDList.includes(messageObject.author.id)) {
+        if (!messageObject.author.bot && globalFileData.adminUserIDList.includes(messageObject.author.id)) {
             if (messageContent.startsWith(intervalReminderKeyword)) {
                 const tempArray = messageContent.split(" ");
                 if (tempArray.length !== 2) throw new Error("changeInterval format not valid");
@@ -195,7 +185,7 @@ bot.on('messageUpdate', async (oldMessage, newMessage) => {
     if (!onReady) { console.log('received messageUpdate event but bot is not ready yet.'); return; }
     try {
         const messageContent = newMessage.content;
-        if (newMessage.author.id === wordleBotID) { 
+        if (newMessage.author.id === wordleBotID) {
             if (messageContent.includes('was playing') || messageContent.includes('were playing')) {
                 if (newMessage.attachments.firstKey() == null) {
                     console.log('found was/were playing but no attachments was detected');
@@ -222,9 +212,35 @@ bot.on('messageUpdate', async (oldMessage, newMessage) => {
 });
 
 bot.on('guildMemberUpdate', (oldMemberInfo, newMemberInfo) => {
-    if (oldMemberInfo.roles.cache !== newMemberInfo.roles.cache) {
-        refreshUsersIDandNotDone();
+    try {
+
+        if (!onReady) {
+
+            console.log('received guildMemberUpdate event but bot not ready.\n' +
+                'received event : old >>>>>>>>>>\n' +
+                oldMemberInfo + '\n' +
+                'new >>>>>>>>>>>>>>>>>>>>\\n' +
+                newMemberInfo + '\n' +
+                '>>>>>>>>>>>>>>>>>>>>'
+            );
+            return;
+
+        }
+        if (oldMemberInfo.roles.cache !== newMemberInfo.roles.cache) {
+
+            refreshUsersIDandNotDone();
+
+        }
+
+    } catch (e) {
+
+        console.log(e.stack);
+
+    }
+    finally {
+
         saveGlobalFileDataToJSON();
+
     }
 });
 
@@ -242,7 +258,7 @@ bot.on('interactionCreate', async (evt) => {
 
                     addCantReply(evtUserId);
                     await evt.reply({ content: 'Loading....', flags: dcJS.MessageFlags.Ephemeral });
-                    const index = notDone.indexOf(evtUserId)
+                    const index = globalFileData.notDone.indexOf(evtUserId)
                     if (index !== -1) {
 
                         const contentToSend = 'ok, will stop reminding you today!';
@@ -266,7 +282,7 @@ bot.on('interactionCreate', async (evt) => {
         }
         else if (evt.isCommand()) { //for all command related stuff!!
 
-            if (adminUserIDList.includes(evt.user.id)) {//for commands that needs permission
+            if (globalFileData.adminUserIDList.includes(evt.user.id)) {//for commands that needs permission
 
                 if (evt.commandName === commandNameListUsers) { //listing wordlers
 
@@ -315,17 +331,23 @@ bot.on('interactionCreate', async (evt) => {
 
 
 function whoisnotdone(event) {
+
     let temp = '';
-    if (notDone.length > 0) {
-        for (const id of notDone) {
+    if (globalFileData.notDone.length > 0) {
+
+        for (const id of globalFileData.notDone) {
             temp += '<@' + id + '>';
         }
         event.reply({ content: temp, allowedMentions: { repliedUser: true } });
+
     }
     else {
+
         temp = 'everyone is done!';
         event.reply({ content: temp });
+
     }
+
 }
 
 async function undoButton(interactionEvent) {
@@ -387,7 +409,9 @@ function makeUserIDAdmin(event, idUser) {
 
     }
     else {
+
         event.reply({ content: "You can't add <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+
     }
 }
 
@@ -402,7 +426,7 @@ function removeUserIDAdmin(event, idUser) {
     if (removeAdminUser(idUser)) {
 
         event.reply({ content: 'Successfully removed : <@' + idUser + '>', allowedMentions: { repliedUser: true } });
-    
+
     } else {
 
         event.reply({ content: "You can't remove <@" + idUser + '>', allowedMentions: { repliedUser: true } });
@@ -412,10 +436,10 @@ function removeUserIDAdmin(event, idUser) {
 
 function sendUserIDList(event) {
 
-    if (usersID.length > 0) {
+    if (globalFileData.usersID.length > 0) {
 
         let contentToSend = '';
-        for (const id of usersID) {
+        for (const id of globalFileData.usersID) {
 
             contentToSend += '<@' + id + '>';
 
@@ -424,8 +448,11 @@ function sendUserIDList(event) {
 
     }
     else {
+
         event.reply({ content: 'Nobody listed yet!' });
+
     }
+
 }
 
 
@@ -439,9 +466,9 @@ function addAdminUser(idUser) {
         return;
 
     }
-    if (!adminUserIDList.includes(idUser)) {
+    if (!globalFileData.adminUserIDList.includes(idUser)) {
 
-        adminUserIDList.push(idUser);
+        globalFileData.adminUserIDList.push(idUser);
         return true;
 
     }
@@ -464,9 +491,9 @@ function removeAdminUser(idUser) {
         return;
 
     }
-    if (adminUserIDList.includes(idUser)) {
+    if (globalFileData.adminUserIDList.includes(idUser)) {
 
-        adminUserIDList.splice(adminUserIDList.indexOf(idUser), 1);
+        globalFileData.adminUserIDList.splice(globalFileData.adminUserIDList.indexOf(idUser), 1);
         return true;
 
     }
@@ -479,65 +506,17 @@ function removeAdminUser(idUser) {
 
 }
 
-function assignVarToGlobalFileData() {
 
-    if (typeof notDone !== 'object') {
-
-        console.log('notDone is not an object!');
-        return;
-
-    }
-    if (typeof adminUserIDList !== 'object') {
-
-        console.log('adminUserIDList is not an object!');
-        return;
-
-    }
-    if (globalFileData['notDone'] != null) {
-    notDone = globalFileData['notDone'];
-    }
-    else {
-        globalFileData['notDone'] = notDone;
-    }
-    if (globalFileData['adminUserIDList'] != null) {
-    adminUserIDList = globalFileData['adminUserIDList'];
-    }
-    else {
-         globalFileData['adminUserIDList'] = adminUserIDList;
-    }
-    if (globalFileData['usersID'] != null) {
-        usersID = globalFileData['usersID'];
-    }else {
-        globalFileData['usersID'] = usersID;
-    }
-}
-
-function assignGlobalFileDataToVar() {
-
-    if (typeof notDone !== 'object') {
-
-        console.log('notDone is not an object!');
-        return;
-
-    }
-    if (typeof adminUserIDList !== 'object') {
-
-        console.log('adminUserIDList is not an object!');
-        return;
-
-    }
-    globalFileData['notDone'] = notDone;
-    globalFileData['adminUserIDList'] = adminUserIDList;
-    globalFileData['usersID'] = usersID;
-
-}
 
 
 async function sendAutoClick(newMessageObject, interactedUserID) {
-    if (!notDone.includes(interactedUserID)) {
+
+    if (!globalFileData.notDone.includes(interactedUserID)) {
+
         console.log('user id : ' + interactedUserID + 'already completed wordle but still received event to fire');
         console.log(newMessageObject);
         return;
+
     }
     const undoButton = new dcJS.ButtonBuilder();
     undoButton.setCustomId(undoButtonCustomId + interactedUserID);
@@ -554,42 +533,71 @@ async function sendAutoClick(newMessageObject, interactedUserID) {
             'If you think this is a mistake press Undo below',
         components: [undoRow]
     });
+
 }
 
 function loadDatabaseData() {
+
     if (fileSys.existsSync('database.json')) {
-        globalFileData = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
+        globalFileDataSave = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
         return true;
+
+        for (const key in Object.keys(globalFileData)) {
+
+            if (globalFileDataSave[key] != null) {
+
+                globalFileData[key] = globalFileDataSave[key];
+                console.log('key ' + key + ' is using cached version');
+
+            }
+            else {
+
+                console.log('key ' + key + ' not found in cache, made an empty value instead');
+
+            }
+
+        }
     }
     return false;
+
 }
 
 function reminderRandomizer() {
+
     return reminderList[Math.floor(Math.random() * reminderList.length)];
+
 }
 
 function sendReminder(theChannelID) {
     try {
-        if (!onReady) return;
-        if (notDone.length === 0) {
+
+        if (globalFileData.notDone.length === 0) {
+
             console.log("no users inside notDone!");
             return;
+
         }
         let contentToSend = "";
         reminderEmbed.setDescription(reminderRandomizer());
-        for (const id of notDone) {
+        for (const id of globalFileData.notDone) {
+
             contentToSend += '||<@' + id + '>||';
+
         }
         const channelObject = bot.channels.cache.get(theChannelID);
         channelObject.send({ content: contentToSend, embeds: [reminderEmbed], components: [reminderRow] });
+
     }
     catch (errr) {
+
         console.log(errr.stack);
+
     }
+
 }
 
 function addUser(idUser) {
-    if (!usersID.includes(idUser)) { usersID.push(idUser); }
+    if (!globalFileData.usersID.includes(idUser)) { globalFileData.usersID.push(idUser); }
 }
 
 function removeUser(idUser) {
@@ -599,15 +607,14 @@ function removeUser(idUser) {
     if (isNaN(parseInt(idUser))) {
         throw new Error('Error : removeUser idUser cannot contain non-integer');
     }
-    if (usersID.includes(idUser)) usersID.splice(usersID.indexOf(idUser), 1);
+    if (globalFileData.usersID.includes(idUser)) globalFileData.usersID.splice(globalFileData.usersID.indexOf(idUser), 1);
 }
 
 function addNotDone(idUser) {
     if (typeof idUser !== 'string') throw new Error('on addNotDone(idUser) : idUser must be string');
     if (isNaN(parseInt(idUser))) { console.log('on addNotDone(idUser) : idUser must be all number'); return; }
-    if (!notDone.includes(idUser)) {
-        notDone.push(idUser);
-        globalFileData['notDone'] = notDone;
+    if (!globalFileData.notDone.includes(idUser)) {
+        globalFileData.notDone.push(idUser);
     }
     else {
         console.log('notDone already has idUser ' + idUser);
@@ -620,60 +627,76 @@ function saveGlobalFileDataToJSON() {
 
 }
 
-function saveToGlobalFileData() {
-
-    notDone = globalFileData['notDone'];
-
-}
 
 function removeNotDone(idUser) {
+
     if (typeof idUser !== 'string') throw new Error('on removeNotDone(idUser) : idUser must be string');
     if (isNaN(parseInt(idUser))) { console.log('on removeNotDone(idUser) : idUser must be all number'); return; }
-    if (notDone.includes(idUser)) {
-        notDone.splice(notDone.indexOf(idUser), 1);
-        globalFileData['notDone'] = notDone;
+    if (globalFileData.notDone.includes(idUser)) {
+        globalFileData.notDone.splice(globalFileData.notDone.indexOf(idUser), 1);
     }
     else {
         console.log('notDone doesnt have idUser ' + idUser);
     }
+
 }
 
 function finishAll() {
-    notDone.length = 0;
+
+    globalFileData.notDone.length = 0;
+
 }
 
 function userFinishedWordle(idUserIndex) {
+
     if (idUserIndex !== -1) {
-        notDone.splice(idUserIndex, 1);
+
+        globalFileData.notDone.splice(idUserIndex, 1);
         return;
+
     }
     throw new Error("userFinishedWordle received index -1 : user not found");
+
 }
 
 function addCantReply(idUser) {
+
     if (!cantReply.includes(idUser)) {
+
         cantReply.push(idUser);
+
     }
+
 }
 
 function removeCantReply(idUser) {
+
     if (typeof idUser !== 'string') {
+
         throw new Error('removeCantReply idUser must be string');
+
     }
     if (isNaN(parseInt(idUser))) {
+
         throw new Error('Error removeCantReply : idUser cannot contain non-integer');
+
     }
     const index = cantReply.indexOf(idUser);
     if (index !== -1) cantReply.splice(index, 1);
+
 }
 
 function resetCantReply() {
+
     cantReply.length = 0;
+
 }
 
 function unfinishEveryone() {
-    notDone.length = 0;
-    notDone.push(...usersID);
+
+    globalFileData.notDone.length = 0;
+    globalFileData.notDone.push(...globalFileData.usersID);
+
 }
 
 function refreshUsersIDandNotDone() {
@@ -684,17 +707,25 @@ function refreshUsersIDandNotDone() {
     const updatedRoleID = [];
     for (const value of role.members.keys()) updatedRoleID.push(value);
     for (const value of updatedRoleID) { //
-        if (!usersID.includes(value)) {
+
+        if (!globalFileData.usersID.includes(value)) {
+
             addUser(value);
             addNotDone(value);
+
         }
+
     }
-    const temp = Array.from(usersID); //you can't traverse through and modify the 
+    const temp = Array.from(globalFileData.usersID); //you can't traverse through and modify the 
     for (const value of temp) {                                         //array while looping
+
         if (!updatedRoleID.includes(value)) { //if usersID has something that updatedRoleID doesn't have
+
             removeUser(value);
             removeNotDone(value);
+
         }
+
     }
     // console.log(">>>>>>>>>> old member :"); console.log(usersID);
     // console.log(">>>>>>>>>> new member :"); console.log(updatedRoleID);
@@ -703,90 +734,94 @@ function refreshUsersIDandNotDone() {
 }
 
 function changeInterval(duration) {
+
     if (isNaN(parseInt(duration))) throw new Error("Interval duration must be a number!");
     intervalHourlyReminder = duration;
     scheduleHourlyReminder.destroy();
     scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
-        if (!onReady) { console.log('supposed to remind but the bot is not ready yet.'); return; }
+
+        if (!onReady) {
+
+            console.log('supposed to remind but the bot is not ready yet.');
+            return;
+
+        }
         resetCantReply();
         sendReminder(mainChannelID);
+
     }, { timezone: 'UTC' });
+
 }
 
 function getKeys(object) {
-    if (typeof object !== 'object') { console.log('Error at getKeys() : ' + 'argument is not an object \n type : ' + typeof object); return; }
-    if (object == null) { console.log('Error at getKeys() : ' + 'argument is null or undefined.'); return; }
+
+    if (typeof object !== 'object') {
+
+        console.log('Error at getKeys() : ' + 'argument is not an object \n type : ' + typeof object);
+        return;
+
+    }
+    if (object == null) {
+
+        console.log('Error at getKeys() : ' + 'argument is null or undefined.');
+        return;
+
+    }
     console.log('>>>key properties>>>');
     console.log(Object.getOwnPropertyNames(object));
     console.log(Object.getPrototypeOf(object));
     console.log('>>>key properties>>>');
+
 }
 
 async function logMessageInfo(channelID/* the channel*/, messageID /*the message ID to look up*/) {
+
     if (typeof channelID !== 'string') {
+
         console.log('Error in logMessageInfo : logMessageInfo argument must be string format');
         return;
+
     }
     if (isNaN(parseInt(channelID))) {
+
         console.log('Error in logMessageInfo : logMessageInfo argument must be int parse-able');
         return;
+
     }
     const channelObject = await bot.channels.fetch(channelID);
-    if (channelObject == null) { console.log('Error logMessageInfo : channel not found'); return; }
+    if (channelObject == null) {
+
+        console.log('Error logMessageInfo : channel not found');
+        return;
+
+    }
     const messagesObject = channelObject.messages;
-    if (messagesObject == null) { console.log('Error logMessageInfo : message not found'); return; }
+    if (messagesObject == null) {
+
+        console.log('Error logMessageInfo : message not found');
+        return;
+
+    }
     const message = await messagesObject.fetch(messageID);
     console.log(message);
+
 }
 
 async function addDelay(miliseconds) {
     //trying to addDelay
     return new Promise((resolve, reject) => {
+
         setTimeout(() => {
+
             resolve();
+
         }, miliseconds);
+
     });
 }
 
-
-
-
-// async function refreshAllCache() {
-//     let successFetch = 0;
-//     await bot.guilds.fetch().then((guilds) => {
-//         return Promise.all(guilds.map(async (guild) => {
-//             try {
-//                 return Promise.all([
-
-//                     guild.members.fetch(),
-//                     guild.roles.fetch(),
-//                     guild.channels.fetch().then(async (channels) => {
-
-//                         return Promise.all(channels.map(channel => {
-
-//                             if (channel.type == dcJS.ChannelType.GuildText) {
-//                                 if (channel.viewable) {
-//                                     successFetch++;
-//                                     return channel.messages.fetch();
-//                                 }
-//                             }
-
-//                         }));
-
-//                     })
-
-//                 ]);
-//             } finally {
-//                 await addDelay(100)
-//             }
-//         }));
-
-//     });
-//     console.log('Number of success fetch : ' + successFetch);
-// }
-
-
 async function refreshAllCache() {
+
     let successFetch = 0;
 
     await bot.guilds.fetch().then(async (guilds) => {
@@ -821,40 +856,46 @@ async function refreshAllCache() {
         return Promise.all(promises);
     });
     console.log('Number of success fetch : ' + successFetch);
+
 }
 
-
-
-
-
-
-
 let scheduleHourlyReminder = cron.schedule('0 */' + intervalHourlyReminder + ' * * *', () => {
+
     if (!onReady) {
+
         console.log('supposed to remind, but the bot is not ready yet.');
         return;
+
     }
     resetCantReply();
     sendReminder(mainChannelID);
+
 }, { timezone: 'UTC' });
 
 cron.schedule('30 18 * * *', () => {
+
     if (!onReady) {
+
         console.log('supposed to remind, but the bot is not ready yet.');
         return;
     }
     resetCantReply();
     sendReminder(mainChannelID);
+
 }, { timezone: 'UTC' });
 
 cron.schedule('0 17 * * *', () => { //restart the list 
+
     if (!onReady) {
+
         console.log('supposed to reset the who finished wordle list to empty, but the bot is not ready yet.');
         return;
+
     }
     unfinishEveryone();
     saveGlobalFileDataToJSON();
     resetCantReply();
+
 }, { timezone: 'UTC' });
 
 main();
