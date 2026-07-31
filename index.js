@@ -2,10 +2,11 @@ const dcJS = require('discord.js');
 const cron = require('node-cron');
 const dotenvi = require('dotenv'); dotenvi.config({ path: ['./botToken.env'] });
 const fileSys = require('fs');
-const { parse } = require('path');
+const filePath = require('path');
 const bot = new dcJS.Client({ intents: [1, 2, 512, 32768] });
 const token = process.env.token;
-const fileName = 'database.json';
+const railwayPath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
+const fileName = railwayPath == null ? 'database.json' : filePath.join(railwayPath, 'database.json');
 let fixedAdminUserIDList = ['480316607223169045'];
 let globalFileData = {};
 globalFileData.adminUserIDList = [];
@@ -584,8 +585,8 @@ async function sendAutoClick(newMessageObject, interactedUserID) {
 
 function loadDatabaseData() { //returns true if file already exists before
 
-    if (fileSys.existsSync('database.json')) {
-        globalFileDataSave = JSON.parse(fileSys.readFileSync('database.json', 'utf-8'));
+    if (fileSys.existsSync(fileName)) {
+        globalFileDataSave = JSON.parse(fileSys.readFileSync(fileName, 'utf-8'));
 
         for (const key of Object.keys(globalFileData)) {
 
