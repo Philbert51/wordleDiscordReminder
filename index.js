@@ -275,12 +275,12 @@ bot.on('interactionCreate', async (evt) => {
                 }
                 else if (evt.commandName === commandNameAdminUser) {
 
-                    makeUserIDAdmin(evt, evt.command.getUser('userid').id);
+                    makeUserIDAdmin(evt, evt.options.getUser('userid').id);
 
                 }
                 else if (evt.commandName === commandNameRemoveAdminUser) {
 
-                    removeUserIDAdmin(evt, evt.command.getUser('userid').id);
+                    removeUserIDAdmin(evt, evt.options.getUser('userid').id);
 
                 }
                 else if (evt.commandName === commandNamewhoisnotdone) {
