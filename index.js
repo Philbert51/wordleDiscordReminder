@@ -150,7 +150,7 @@ bot.on('messageCreate', async function (messageObject) {
             }
         }
         if (!messageObject.author.bot && globalFileData.adminUserIDList.includes(messageObject.author.id)) {
-            
+
         }
     }
     catch (E) {
@@ -340,19 +340,25 @@ function finishWordle(event) {
     const userID = event?.options?.getUser('user').id;
     if (!globalFileData.usersID.includes(userID)) {
 
-        event.reply({ content : '<@' + userID + '> does not have wordlers role'});
+        event.reply({ content: '<@' + userID + '> does not have wordlers role' });
         return;
 
     }
     if (userID != null) {
 
-        removeNotDone(userID);
-        event.reply({ content: 'finish success.' });
+        if (removeNotDone(userID)) {
+            event.reply({ content: 'finish success.' });
+        }
+        else {
+
+            event.reply({ content: '<@' + userID + '> already does wordle', allowedMentions: { repliedUser: true } });
+
+        }
 
     }
     else {
 
-        event.reply({ content: 'data corrupted somehow??????????'});
+        event.reply({ content: 'data corrupted somehow??????????' });
 
     }
 
@@ -363,19 +369,27 @@ function unfinishWordle(event) {
     const userID = event?.options?.getUser('user').id;
     if (!globalFileData.usersID.includes(userID)) {
 
-        event.reply({ content : '<@' + userID + '> does not have wordlers role'});
+        event.reply({ content: '<@' + userID + '> does not have wordlers role' });
         return;
 
     }
     if (userID != null) {
 
-        addNotDone(userID);
-        event.reply({ content: 'unfinish success.' });
+        if (addNotDone(userID)) {
+
+            event.reply({ content: 'unfinish success.' });
+
+        }
+        else {
+
+            event.reply({ content: '<@' + userID + "> didn't do it already", allowedMentions: { repliedUser: true } });
+
+        }
 
     }
     else {
 
-        event.reply({ content: 'data corrupted somehow??????????'});
+        event.reply({ content: 'data corrupted somehow??????????' });
 
     }
 
@@ -462,7 +476,7 @@ function makeUserIDAdmin(event, idUser) {
     }
     else {
 
-        event.reply({ content: "You can't add <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+        event.reply({ content: "<@" + idUser + '> is already admin', allowedMentions: { repliedUser: true } });
 
     }
 }
@@ -481,7 +495,7 @@ function removeUserIDAdmin(event, idUser) {
 
     } else {
 
-        event.reply({ content: "You can't remove <@" + idUser + '>', allowedMentions: { repliedUser: true } });
+        event.reply({ content: "<@" + idUser + '> is not an admin', allowedMentions: { repliedUser: true } });
 
     }
 }
@@ -653,7 +667,7 @@ function addUser(idUser) {
     if (!globalFileData.usersID.includes(idUser)) { globalFileData.usersID.push(idUser); }
 }
 
-function removeUsergetInteger(idUser) {
+function removeUser(idUser) {
     if (typeof idUser !== 'string') {
         throw new Error('removeUser idUser must be string');
     }
@@ -668,9 +682,11 @@ function addNotDone(idUser) {
     if (isNaN(parseInt(idUser))) { console.log('on addNotDone(idUser) : idUser must be all number'); return; }
     if (!globalFileData.notDone.includes(idUser)) {
         globalFileData.notDone.push(idUser);
+        return true;
     }
     else {
         console.log('notDone already has idUser ' + idUser);
+        return false;
     }
 }
 
@@ -687,9 +703,11 @@ function removeNotDone(idUser) {
     if (isNaN(parseInt(idUser))) { console.log('on removeNotDone(idUser) : idUser must be all number'); return; }
     if (globalFileData.notDone.includes(idUser)) {
         globalFileData.notDone.splice(globalFileData.notDone.indexOf(idUser), 1);
+        return true;
     }
     else {
         console.log('notDone doesnt have idUser ' + idUser);
+        return false;
     }
 
 }
@@ -699,12 +717,12 @@ function finishAll(event) {
     if (globalFileData.notDone.length > 0) {
 
         globalFileData.notDone.length = 0;
-        event.reply({ content : 'cleared everyone!'});
+        event.reply({ content: 'cleared everyone!' });
 
     }
     else {
 
-        event.reply({ content : 'Everybody is done, nothing to clear'});
+        event.reply({ content: 'Everybody is done, nothing to clear' });
 
     }
 
@@ -802,7 +820,7 @@ function changeInterval(event) {
     if (isNaN(tempInterval)) throw new Error("Interval duration must be a number!");
     if (tempInterval < 1 || tempInterval > 23) {
 
-        event.reply( { content : 'Not a valid number range, must be 1 <= x <= 23' });
+        event.reply({ content: 'Not a valid number range, must be 1 <= x <= 23' });
         return;
 
     }
@@ -820,7 +838,7 @@ function changeInterval(event) {
         sendReminder(mainChannelID);
 
     }, { timezone: 'UTC' });
-    event.reply('Interval set : ' +  intervalHourlyReminder);
+    event.reply('Interval set : ' + intervalHourlyReminder);
 
 }
 
