@@ -340,14 +340,14 @@ function finishWordle(event) {
     const userID = event?.options?.getUser('user').id;
     if (!globalFileData.usersID.includes(userID)) {
 
-        event.reply({ content: '<@' + userID + '> does not have wordlers role' });
+        event.reply({ content: '<@' + userID + '> does not have wordlers role', allowedMentions: { repliedUser: true } });
         return;
 
     }
     if (userID != null) {
 
         if (removeNotDone(userID)) {
-            event.reply({ content: 'finish success.' });
+            event.reply({ content: 'finish success.', allowedMentions: { repliedUser: true } });
         }
         else {
 
@@ -358,7 +358,7 @@ function finishWordle(event) {
     }
     else {
 
-        event.reply({ content: 'data corrupted somehow??????????' });
+        event.reply({ content: 'data corrupted somehow??????????', allowedMentions: { repliedUser: true } });
 
     }
 
@@ -369,7 +369,7 @@ function unfinishWordle(event) {
     const userID = event?.options?.getUser('user').id;
     if (!globalFileData.usersID.includes(userID)) {
 
-        event.reply({ content: '<@' + userID + '> does not have wordlers role' });
+        event.reply({ content: '<@' + userID + '> does not have wordlers role', allowedMentions: { repliedUser: true } });
         return;
 
     }
@@ -377,7 +377,7 @@ function unfinishWordle(event) {
 
         if (addNotDone(userID)) {
 
-            event.reply({ content: 'unfinish success.' });
+            event.reply({ content: 'unfinish success.', allowedMentions: { repliedUser: true } });
 
         }
         else {
@@ -389,7 +389,7 @@ function unfinishWordle(event) {
     }
     else {
 
-        event.reply({ content: 'data corrupted somehow??????????' });
+        event.reply({ content: 'data corrupted somehow??????????' , allowedMentions: { repliedUser: true }});
 
     }
 
@@ -410,7 +410,7 @@ function whoisnotdone(event) {
     else {
 
         temp = 'everyone is done!';
-        event.reply({ content: temp });
+        event.reply({ content: temp , allowedMentions: { repliedUser: true }});
 
     }
 
@@ -515,7 +515,7 @@ function sendUserIDList(event) {
     }
     else {
 
-        event.reply({ content: 'Nobody listed yet!' });
+        event.reply({ content: 'Nobody listed yet!' , allowedMentions: { repliedUser: true }});
 
     }
 
